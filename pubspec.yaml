@@ -1,0 +1,67 @@
+name: starmark
+description: Offline EXIF photo watermark editor for Xiaomi Android.
+publish_to: none
+version: 0.9.0+64
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  watermark_engine:
+    path: packages/watermark_engine
+  xml: ^7.0.1
+  flutter_svg: ^2.2.0
+  vector_graphics: ^1.1.0
+  archive: ^4.0.0
+  crypto: ^3.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: false
+  assets:
+    - assets/home/
+    - assets/licenses/
+    - assets/samples/
+    - assets/presets/
+    - assets/watermarks/
+    - assets/watermarks/blobs/
+    - assets/branding/
+    - assets/marks/models/Brand/
+    - assets/marks/models/0-9, S, T/
+    - assets/marks/models/Model/
+    - assets/marks/leica/
+    - assets/fonts/font_catalog.json
+    - assets/fonts/NotoSans-LICENSE.txt
+    - assets/fonts/SourceHanSans-LICENSE.txt
+  fonts:
+    - family: Qinghe
+      fonts:
+        - asset: assets/fonts/Qinghe.otf
+    - family: Oxanium
+      fonts:
+        - asset: assets/fonts/Oxanium.ttf
+    - family: LG1056
+      fonts:
+        - asset: assets/fonts/LG1056.otf
+    - family: MiSans
+      fonts:
+        - asset: assets/fonts/MiSansVF.ttf
+    - family: RedmiSans
+      fonts:
+        - asset: assets/fonts/RedmiSansTest0801.ttf
+          weight: 400
+    - family: Beihaibei
+      fonts:
+        - asset: assets/fonts/Beihaibei.ttf
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans.ttf
+    - family: SourceHanSans
+      fonts:
+        - asset: assets/fonts/SourceHanSansCN-Regular.otf
+
+

@@ -1,0 +1,34 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_leica_67_name",
+    "id": "67",
+    "description": "leica_6",
+    "reminder": "@wm_common_reminder_v2",
+    "reminder_not_support_mode": [
+      "front",
+      "multi",
+      "raw",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "limitation": {
+      "device_type": [
+        "leica"
+      ]
+    },
+    "priority": 0.6,
+    "position": "in",
+    "exclude_cases": [
+      "front",
+      "multi",
+      "cosmetic",
+      "doc",
+      "pano",
+      "mimoji",
+      "livephoto"
+    ]
+  }
+}

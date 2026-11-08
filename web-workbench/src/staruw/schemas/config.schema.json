@@ -1,0 +1,2196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:staruw:1.0:config",
+  "title": "StarUW 1.0 config",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "com.realize.starmark.watermark"
+    },
+    "version": {
+      "enum": [
+        1,
+        1.58,
+        1.78,
+        1.81
+      ]
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "layout_group": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "minItems": 1,
+      "maxItems": 4096
+    },
+    "wmRes": {
+      "type": "object"
+    },
+    "staruw": {
+      "$ref": "#/$defs/staruw"
+    }
+  },
+  "required": [
+    "format",
+    "staruw"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\\\x00-\\x1f\\x7f:<>\"|?*]+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{8}$"
+    },
+    "capability": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]{1,127}$"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_-]*(?:\\.[a-z][a-z0-9_-]*)+$"
+      },
+      "additionalProperties": {
+        "type": "object"
+      },
+      "maxProperties": 64
+    },
+    "point": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": -1000000,
+        "maximum": 1000000
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "unitPoint": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "positivePoint": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "insets": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "right": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "left": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "enum": [
+            "canvas",
+            "photo",
+            "frameTop",
+            "frameRight",
+            "frameBottom",
+            "frameLeft",
+            "parent"
+          ]
+        },
+        "anchor": {
+          "$ref": "#/$defs/unitPoint"
+        },
+        "pivot": {
+          "$ref": "#/$defs/unitPoint"
+        },
+        "offset": {
+          "$ref": "#/$defs/point"
+        },
+        "size": {
+          "$ref": "#/$defs/positivePoint"
+        }
+      },
+      "required": [
+        "reference",
+        "anchor",
+        "pivot",
+        "offset",
+        "size"
+      ],
+      "additionalProperties": false
+    },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "font",
+            "catalog",
+            "data",
+            "license"
+          ]
+        },
+        "mediaType": {
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/svg+xml",
+            "font/ttf",
+            "font/otf",
+            "application/json",
+            "text/plain"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "path",
+        "kind",
+        "mediaType",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "font": {
+      "type": "object",
+      "properties": {
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "axes": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9 ]{4}$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "maxProperties": 32
+        },
+        "fallbackFontIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "resourceId",
+        "axes",
+        "fallbackFontIds"
+      ],
+      "additionalProperties": false
+    },
+    "fontFit": {
+      "type": "object",
+      "properties": {
+        "referenceFontId": {
+          "$ref": "#/$defs/id"
+        },
+        "referenceSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "referenceAxes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "maxProperties": 32
+        },
+        "probe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "referenceFontId",
+        "referenceSize",
+        "referenceAxes"
+      ],
+      "additionalProperties": false
+    },
+    "textStyle": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "lineHeight": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "minSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "letterSpacing": {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "verticalAlign": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
+        },
+        "overflow": {
+          "enum": [
+            "shrink",
+            "clip"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "ltr",
+            "rtl"
+          ]
+        },
+        "fontFit": {
+          "$ref": "#/$defs/fontFit"
+        }
+      },
+      "required": [
+        "size",
+        "lineHeight",
+        "minSize",
+        "color",
+        "align",
+        "verticalAlign",
+        "overflow"
+      ],
+      "additionalProperties": false
+    },
+    "field": {
+      "enum": [
+        "photo.make",
+        "photo.model",
+        "exif.focalLengthMm",
+        "exif.focalLength35mm",
+        "exif.aperture",
+        "exif.exposureSeconds",
+        "exif.iso",
+        "capture.localTime",
+        "gps.latitude",
+        "gps.longitude",
+        "user.signature"
+      ]
+    },
+    "part": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "literal": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "$ref": "#/$defs/field"
+            },
+            "format": {
+              "enum": [
+                "plain",
+                "focalMm",
+                "apertureF",
+                "shutterSeconds",
+                "iso",
+                "gpsDms",
+                "dateTimeDots",
+                "dateTimeSlash"
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "format"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "content": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "literal": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "parts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/part"
+              },
+              "minItems": 1,
+              "maxItems": 128
+            },
+            "separator": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "missing": {
+              "const": "omit"
+            }
+          },
+          "required": [
+            "parts",
+            "separator",
+            "missing"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "solid": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "solid"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        }
+      },
+      "required": [
+        "kind",
+        "color"
+      ],
+      "additionalProperties": false
+    },
+    "blur": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "photo-blur"
+        },
+        "version": {
+          "const": 1
+        },
+        "theme": {
+          "enum": [
+            "light",
+            "dark"
+          ]
+        },
+        "blurSigmaU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "tint": {
+          "$ref": "#/$defs/color"
+        },
+        "tintOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "highlightColor": {
+          "$ref": "#/$defs/color"
+        },
+        "highlightWidthU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "theme",
+        "blurSigmaU",
+        "scale",
+        "tint",
+        "tintOpacity",
+        "highlightColor",
+        "highlightWidthU"
+      ],
+      "additionalProperties": false
+    },
+    "glass": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "photo-glass"
+        },
+        "version": {
+          "const": 1
+        },
+        "theme": {
+          "enum": [
+            "light",
+            "dark"
+          ]
+        },
+        "blurSigmaU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "tint": {
+          "$ref": "#/$defs/color"
+        },
+        "tintOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "highlightColor": {
+          "$ref": "#/$defs/color"
+        },
+        "highlightWidthU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "refractionU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "cornerRadiusU": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "backendPreference": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capability"
+          },
+          "minItems": 1,
+          "maxItems": 16
+        },
+        "fallback": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/solid"
+            },
+            {
+              "$ref": "#/$defs/blur"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "theme",
+        "blurSigmaU",
+        "scale",
+        "tint",
+        "tintOpacity",
+        "highlightColor",
+        "highlightWidthU",
+        "refractionU",
+        "cornerRadiusU",
+        "backendPreference",
+        "fallback"
+      ],
+      "additionalProperties": false
+    },
+    "material": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/blur"
+        },
+        {
+          "$ref": "#/$defs/glass"
+        }
+      ]
+    },
+    "background": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/solid"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "image"
+            },
+            "resourceId": {
+              "$ref": "#/$defs/id"
+            },
+            "fit": {
+              "enum": [
+                "contain",
+                "cover"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "resourceId",
+            "fit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "material"
+            },
+            "materialId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "kind",
+            "materialId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "canvas": {
+      "type": "object",
+      "properties": {
+        "referenceShortEdge": {
+          "const": 1080
+        },
+        "mode": {
+          "enum": [
+            "overlay",
+            "frame"
+          ]
+        },
+        "insets": {
+          "$ref": "#/$defs/insets"
+        },
+        "background": {
+          "$ref": "#/$defs/background"
+        }
+      },
+      "required": [
+        "referenceShortEdge",
+        "mode",
+        "insets",
+        "background"
+      ],
+      "additionalProperties": false
+    },
+    "node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "type": {
+              "const": "image"
+            },
+            "bounds": {
+              "$ref": "#/$defs/bounds"
+            },
+            "visible": {
+              "type": "boolean"
+            },
+            "rotation": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "extensions": {
+              "$ref": "#/$defs/extensions"
+            },
+            "resourceId": {
+              "$ref": "#/$defs/id"
+            },
+            "fit": {
+              "enum": [
+                "contain",
+                "cover"
+              ]
+            },
+            "shape": {
+              "enum": [
+                "rect",
+                "circle"
+              ]
+            },
+            "slot": {
+              "enum": [
+                "parameterIcon",
+                "brand",
+                "signature"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "bounds",
+            "resourceId",
+            "fit",
+            "shape"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "type": {
+              "const": "text"
+            },
+            "bounds": {
+              "$ref": "#/$defs/bounds"
+            },
+            "visible": {
+              "type": "boolean"
+            },
+            "rotation": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "extensions": {
+              "$ref": "#/$defs/extensions"
+            },
+            "content": {
+              "$ref": "#/$defs/content"
+            },
+            "fontId": {
+              "$ref": "#/$defs/id"
+            },
+            "textStyle": {
+              "$ref": "#/$defs/textStyle"
+            },
+            "slot": {
+              "enum": [
+                "signature",
+                "parameters"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "bounds",
+            "content",
+            "fontId",
+            "textStyle"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "type": {
+              "const": "model"
+            },
+            "bounds": {
+              "$ref": "#/$defs/bounds"
+            },
+            "visible": {
+              "type": "boolean"
+            },
+            "rotation": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "extensions": {
+              "$ref": "#/$defs/extensions"
+            },
+            "catalogId": {
+              "$ref": "#/$defs/id"
+            },
+            "fallbackFontId": {
+              "$ref": "#/$defs/id"
+            },
+            "textStyle": {
+              "$ref": "#/$defs/textStyle"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "bounds",
+            "catalogId",
+            "fallbackFontId",
+            "textStyle"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "type": {
+              "const": "group"
+            },
+            "bounds": {
+              "$ref": "#/$defs/bounds"
+            },
+            "visible": {
+              "type": "boolean"
+            },
+            "rotation": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "extensions": {
+              "$ref": "#/$defs/extensions"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/node"
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "role": {
+              "enum": [
+                "model",
+                "parameters"
+              ]
+            },
+            "clipChildren": {
+              "type": "boolean"
+            },
+            "replacementStyle": {
+              "type": "object",
+              "properties": {
+                "fontId": {
+                  "$ref": "#/$defs/id"
+                },
+                "textStyle": {
+                  "$ref": "#/$defs/textStyle"
+                }
+              },
+              "required": [
+                "fontId",
+                "textStyle"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "bounds",
+            "children"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scene": {
+      "type": "object",
+      "properties": {
+        "canvas": {
+          "$ref": "#/$defs/canvas"
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/font"
+          },
+          "maxProperties": 512
+        },
+        "catalogs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/id"
+          },
+          "maxProperties": 512
+        },
+        "materials": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/material"
+          },
+          "maxProperties": 512
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "canvas",
+        "fonts",
+        "catalogs",
+        "materials",
+        "nodes"
+      ],
+      "additionalProperties": false
+    },
+    "derivedFrom": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "payloadDigest": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "payloadDigest"
+      ],
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "derivedFrom": {
+          "$ref": "#/$defs/derivedFrom"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "brand": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "category": {
+          "$ref": "#/$defs/id"
+        },
+        "preview": {
+          "$ref": "#/$defs/path"
+        },
+        "previewKind": {
+          "enum": [
+            "rendered",
+            "oem",
+            "fixture"
+          ]
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "license": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "localizations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "maxProperties": 64
+        }
+      },
+      "required": [
+        "name",
+        "brand",
+        "category",
+        "preview"
+      ],
+      "additionalProperties": false
+    },
+    "sourceFile": {
+      "type": "object",
+      "properties": {
+        "originalPath": {
+          "$ref": "#/$defs/path"
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        }
+      },
+      "required": [
+        "originalPath",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "vendor": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "kind": {
+          "enum": [
+            "xiaomi-oem",
+            "vendor-original",
+            "starmark-legacy",
+            "starmark-legacy-sanitized",
+            "web-legacy-sanitized"
+          ]
+        },
+        "templateKey": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "schemaVersion": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "entry": {
+          "$ref": "#/$defs/path"
+        },
+        "config": {
+          "$ref": "#/$defs/path"
+        },
+        "sourceDigest": {
+          "$ref": "#/$defs/hash"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceFile"
+          },
+          "minItems": 1,
+          "maxItems": 511
+        },
+        "sanitized": {
+          "type": "boolean"
+        },
+        "removedFields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "minItems": 0,
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "vendor",
+        "kind",
+        "schemaVersion",
+        "entry",
+        "config",
+        "sourceDigest",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "sourcePointer": {
+          "type": "string",
+          "pattern": "^/(?:[^~]|~[01])*$",
+          "maxLength": 2048
+        },
+        "nodeType": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "property": {
+          "$ref": "#/$defs/id"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "visible",
+              "scalePreset",
+              "selectVariant",
+              "font",
+              "modelRegion",
+              "parameterIcon",
+              "photoOverride"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 7,
+          "uniqueItems": true
+        },
+        "replacementStyle": {
+          "type": "object",
+          "properties": {
+            "fontId": {
+              "$ref": "#/$defs/id"
+            },
+            "textStyle": {
+              "$ref": "#/$defs/textStyle"
+            }
+          },
+          "required": [
+            "fontId",
+            "textStyle"
+          ],
+          "additionalProperties": false
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "selection": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "layout"
+                      },
+                      "groupIndex": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4095
+                      },
+                      "key": {
+                        "type": "string",
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "groupIndex",
+                      "key"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "option"
+                      },
+                      "key": {
+                        "type": "string",
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "key"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "selection"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "id",
+        "sourcePointer",
+        "nodeType",
+        "property",
+        "operations"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operations": {
+                "contains": {
+                  "const": "selectVariant"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "variants"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operations": {
+                "contains": {
+                  "const": "modelRegion"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "replacementStyle"
+            ]
+          }
+        }
+      ]
+    },
+    "xiaomi": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "const": "starmark.xiaomi.v1"
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/font"
+          },
+          "maxProperties": 512
+        },
+        "fontAliases": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/id"
+          },
+          "maxProperties": 512
+        },
+        "fontPolicy": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "$ref": "#/$defs/id"
+            },
+            "leica": {
+              "$ref": "#/$defs/id"
+            },
+            "redmi": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "default",
+            "leica",
+            "redmi"
+          ],
+          "additionalProperties": false
+        },
+        "initialLayout": {
+          "type": "object",
+          "properties": {
+            "groupIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "groupIndex",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        "catalogs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/id"
+          },
+          "maxProperties": 512
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/binding"
+          },
+          "minItems": 0,
+          "maxItems": 512
+        }
+      },
+      "required": [
+        "policy",
+        "fonts",
+        "fontAliases",
+        "fontPolicy",
+        "initialLayout",
+        "catalogs",
+        "bindings"
+      ],
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "node",
+            "canvas",
+            "xiaomiBinding",
+            "photoField"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "property": {
+          "enum": [
+            "visible",
+            "opacity",
+            "rotation",
+            "offset",
+            "size",
+            "offsetX",
+            "offsetY",
+            "width",
+            "height",
+            "font",
+            "content",
+            "image",
+            "shape",
+            "modelRegion",
+            "parameterIcon",
+            "background",
+            "insets",
+            "scalePreset",
+            "selectVariant",
+            "photoOverride",
+            "value"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "property"
+      ],
+      "additionalProperties": false
+    },
+    "control": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "type": {
+              "const": "toggle"
+            },
+            "scope": {
+              "enum": [
+                "template",
+                "photo"
+              ]
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/target"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "stage": {
+              "enum": [
+                "layout",
+                "design",
+                "photo"
+              ]
+            },
+            "when": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "controlId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "equals": {}
+                },
+                "required": [
+                  "controlId",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "type",
+            "scope",
+            "targets"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "type": {
+              "const": "choice"
+            },
+            "scope": {
+              "enum": [
+                "template",
+                "photo"
+              ]
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/target"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "stage": {
+              "enum": [
+                "layout",
+                "design",
+                "photo"
+              ]
+            },
+            "when": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "controlId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "equals": {}
+                },
+                "required": [
+                  "controlId",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "value": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 256
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "type",
+            "scope",
+            "targets",
+            "options"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "type": {
+              "const": "number"
+            },
+            "scope": {
+              "enum": [
+                "template",
+                "photo"
+              ]
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/target"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "stage": {
+              "enum": [
+                "layout",
+                "design",
+                "photo"
+              ]
+            },
+            "when": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "controlId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "equals": {}
+                },
+                "required": [
+                  "controlId",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            },
+            "min": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "max": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "step": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000000
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "type",
+            "scope",
+            "targets",
+            "min",
+            "max",
+            "step"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "type": {
+              "const": "text"
+            },
+            "scope": {
+              "enum": [
+                "template",
+                "photo"
+              ]
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/target"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "stage": {
+              "enum": [
+                "layout",
+                "design",
+                "photo"
+              ]
+            },
+            "when": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "controlId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "equals": {}
+                },
+                "required": [
+                  "controlId",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "type",
+            "scope",
+            "targets"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "type": {
+              "const": "image"
+            },
+            "scope": {
+              "enum": [
+                "template",
+                "photo"
+              ]
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/target"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "stage": {
+              "enum": [
+                "layout",
+                "design",
+                "photo"
+              ]
+            },
+            "when": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "controlId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "equals": {}
+                },
+                "required": [
+                  "controlId",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            },
+            "allowTypes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "image/png",
+                  "image/jpeg",
+                  "image/webp",
+                  "image/svg+xml"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 4,
+              "uniqueItems": true
+            },
+            "allowShapes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "rect",
+                  "circle"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "type",
+            "scope",
+            "targets",
+            "allowTypes",
+            "allowShapes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "type": {
+              "const": "region"
+            },
+            "scope": {
+              "enum": [
+                "template",
+                "photo"
+              ]
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/target"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "stage": {
+              "enum": [
+                "layout",
+                "design",
+                "photo"
+              ]
+            },
+            "when": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "controlId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "equals": {}
+                },
+                "required": [
+                  "controlId",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            },
+            "allowModes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "native",
+                  "text",
+                  "image"
+                ]
+              },
+              "contains": {
+                "const": "native"
+              },
+              "minItems": 1,
+              "maxItems": 3,
+              "uniqueItems": true
+            },
+            "allowTypes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "image/png",
+                  "image/jpeg",
+                  "image/webp",
+                  "image/svg+xml"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 4,
+              "uniqueItems": true
+            },
+            "allowFits": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "contain",
+                  "cover"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "type",
+            "scope",
+            "targets",
+            "allowModes",
+            "allowTypes",
+            "allowFits"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "authoring": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "const": "authoring.ten-elements.v1"
+        },
+        "referencePhotoAspect": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "editorState": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "locked": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "maxProperties": 4096
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "additionalProperties": false
+    },
+    "staruw": {
+      "type": "object",
+      "properties": {
+        "standard": {
+          "const": "StarUW"
+        },
+        "protocolVersion": {
+          "const": "1.0.0"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "render": {
+          "type": "object",
+          "properties": {
+            "engine": {
+              "enum": [
+                "scene",
+                "xiaomi"
+              ]
+            },
+            "profile": {
+              "enum": [
+                "scene.core.v1",
+                "xiaomi.layout.v1"
+              ]
+            }
+          },
+          "required": [
+            "engine",
+            "profile"
+          ],
+          "additionalProperties": false
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capability"
+          },
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/resource"
+          },
+          "maxProperties": 512
+        },
+        "controls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/control"
+          },
+          "minItems": 0,
+          "maxItems": 512
+        },
+        "defaults": {
+          "type": "object",
+          "additionalProperties": {},
+          "maxProperties": 512
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "xiaomi": {
+          "$ref": "#/$defs/xiaomi"
+        },
+        "scene": {
+          "$ref": "#/$defs/scene"
+        },
+        "authoring": {
+          "$ref": "#/$defs/authoring"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      },
+      "required": [
+        "standard",
+        "protocolVersion",
+        "identity",
+        "metadata",
+        "render",
+        "requires",
+        "resources",
+        "controls",
+        "defaults"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "render": {
+                "properties": {
+                  "engine": {
+                    "const": "scene"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "scene"
+            ],
+            "properties": {
+              "render": {
+                "properties": {
+                  "profile": {
+                    "const": "scene.core.v1"
+                  }
+                }
+              }
+            },
+            "not": {
+              "required": [
+                "xiaomi"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "source",
+              "xiaomi"
+            ],
+            "properties": {
+              "render": {
+                "properties": {
+                  "profile": {
+                    "const": "xiaomi.layout.v1"
+                  }
+                }
+              }
+            },
+            "not": {
+              "required": [
+                "scene"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "staruw": {
+            "properties": {
+              "render": {
+                "properties": {
+                  "engine": {
+                    "const": "xiaomi"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "version",
+          "metadata",
+          "layout_group",
+          "wmRes"
+        ]
+      }
+    },
+    {
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "starmark"
+            ]
+          },
+          {
+            "required": [
+              "portable"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

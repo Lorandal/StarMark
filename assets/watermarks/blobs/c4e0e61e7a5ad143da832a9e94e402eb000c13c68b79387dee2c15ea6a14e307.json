@@ -1,0 +1,10 @@
+{
+  "wm_2025_national_64_name": {
+    "default": "NationalDay TWO",
+    "zh-rCN": "中秋国庆水印2"
+  },
+  "wm_time_yyyy_MM_dd_HH_mm": {
+    "default": "yyyy.MM.dd HH:mm",
+    "zh-rCN": "yyyy.MM.dd HH:mm"
+  }
+}

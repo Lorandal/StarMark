@@ -1,0 +1,28 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_new_year_1_name",
+    "id": "108",
+    "description": "new_year_1",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "show_in_menu": true,
+    "priority": 1,
+    "exclude_cases": [
+      "200m"
+    ],
+    "limitation": {
+      "system_properties": {
+        "ro.product.device": []
+      },
+      "device_type": []
+    }
+  }
+}

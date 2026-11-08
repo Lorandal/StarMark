@@ -1,0 +1,31 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_2025_national_64_name",
+    "id": "64",
+    "description": "2025_national_day_2",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "priority": 2,
+    "exclude_cases": [
+      "200m"
+    ],
+    "limitation": {
+      "validity": "2025-09-10T00:00:00 ~ 2025-10-13T00:00:00",
+      "ro.miui.build.region": [
+        "cn"
+      ],
+      "system_properties": {
+        "ro.product.device": []
+      },
+      "device_type": []
+    }
+  }
+}

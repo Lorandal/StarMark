@@ -1,0 +1,28 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_sports_4_name",
+    "id": "77",
+    "description": "sports_4",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "priority": 4,
+    "position": "out",
+    "exclude_cases": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji"
+    ],
+    "limitation": {}
+  }
+}

@@ -1,0 +1,223 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_2026_national_day_142_name",
+    "id": "142",
+    "description": "2026_national_day_142",
+    "reminder_not_support_mode": ["multi", "raw", "200m", "doc", "pano", "mimoji", "instant"],
+    "exclude_cases": ["200m"],
+    "priority": 2,
+    "position": "out",
+    "show_in_menu": true
+  },
+  "layout_group": [
+    {
+      "layout": [
+        {
+          "type": "Layout",
+          "id": "all_content",
+          "orientation": "overlap",
+          "layout_width": "wrap_content",
+          "layout_height": "wrap_content",
+          "gravity": "center",
+          "margin_left": "0dp",
+          "margin_top": "0dp",
+          "background": "@background=bg_texture",
+          "background_optional": false,
+          "childViews": [
+            {
+              "type": "ImageView",
+              "id": "bottom_right_img",
+              "layout_gravity": "right|bottom",
+              "margin_left": "0dp",
+              "margin_top": "0dp",
+              "display_height": "240dp",
+              "display_width": "0dp",
+              "path": "pathType=direct;path=img_bottom_right.webp"
+            },
+            {
+              "type": "Layout",
+              "id": "src_watermark_layout",
+              "orientation": "horizontal",
+              "layout_width": "wrap_content",
+              "layout_height": "wrap_content",
+              "gravity": "center",
+              "margin_left": "0dp",
+              "margin_top": "0dp",
+              "childViews": [
+                {
+                  "type": "Layout",
+                  "id": "left_padding",
+                  "orientation": "horizontal",
+                  "layout_width": "40dp",
+                  "layout_height": "match_parent",
+                  "gravity": "left",
+                  "margin_left": "0dp",
+                  "margin_top": "0dp",
+                  "childViews": []
+                },
+                {
+                  "type": "Layout",
+                  "id": "content_layout",
+                  "orientation": "vertical",
+                  "layout_width": "wrap_content",
+                  "layout_height": "wrap_content",
+                  "gravity": "center",
+                  "margin_left": "0dp",
+                  "margin_top": "0dp",
+                  "childViews": [
+                    {
+                      "type": "Layout",
+                      "id": "top_padding",
+                      "orientation": "horizontal",
+                      "layout_width": "match_parent",
+                      "layout_height": "40dp",
+                      "gravity": "left",
+                      "margin_left": "0dp",
+                      "margin_top": "0dp",
+                      "childViews": []
+                    },
+                    {
+                      "type": "ImageView",
+                      "id": "src_image_view",
+                      "layout_gravity": "left",
+                      "margin_left": "0dp",
+                      "margin_top": "0dp",
+                      "display_height": "0dp",
+                      "path": ""
+                    },
+                    {
+                      "type": "Layout",
+                      "id": "bottom_layout",
+                      "orientation": "none",
+                      "layout_width": "match_parent",
+                      "layout_height": "240dp",
+                      "gravity": "center",
+                      "margin_left": "0dp",
+                      "margin_top": "0dp",
+                      "childViews": [
+                        {
+                          "type": "Layout",
+                          "id": "left_bottom_group",
+                          "orientation": "vertical",
+                          "layout_width": "wrap_content",
+                          "layout_height": "wrap_content",
+                          "gravity": "left|center_vertical",
+                          "margin_left": "20dp",
+                          "margin_top": "0dp",
+                          "childViews": [
+                            {
+                              "type": "Layout",
+                              "id": "brand_layout",
+                              "orientation": "horizontal",
+                              "layout_width": "wrap_content",
+                              "layout_height": "wrap_content",
+                              "gravity": "left|center_vertical",
+                              "margin_left": "0dp",
+                              "margin_top": "0dp",
+                              "childViews": [
+                                {
+                                  "type": "ImageView",
+                                  "id": "logo",
+                                  "layout_gravity": "center_vertical",
+                                  "margin_left": "0dp",
+                                  "margin_top": "0dp",
+                                  "display_height": "44dp",
+                                  "display_width": "0dp",
+                                  "path": "pathType=fill;path=${logo};foreground=4"
+                                },
+                                {
+                                  "type": "TextView",
+                                  "id": "model",
+                                  "margin_left": "0dp",
+                                  "layout_gravity": "center_vertical",
+                                  "text": "@model= @{series}@{versionNumber}",
+                                  "text_upper": false,
+                                  "font_ref": "f1"
+                                },
+                                {
+                                  "type": "TextView",
+                                  "id": "model_versionName",
+                                  "margin_left": "0dp",
+                                  "layout_gravity": "center_vertical",
+                                  "text": "@model=@{versionName}",
+                                  "text_upper": false,
+                                  "font_ref": "f2",
+                                  "rect_params": {
+                                    "rect_text_width_gap": 10,
+                                    "rect_text_height_gap": 0,
+                                    "rect_line_width": 2,
+                                    "rect_radius": [6.8, 6.8, 6.8, 6.8, 6.8, 6.8, 6.8, 6.8],
+                                    "rect_line_color": "@foreground=3",
+                                    "rect_width": "wrap_content",
+                                    "rect_height": "34dp"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "TextView",
+                              "id": "time",
+                              "optional": true,
+                              "layout_gravity": "left",
+                              "margin_top": "9dp",
+                              "text": "@time=@lunar(${yearGan}${yearZhi}年 ${monthInChinese}月${dayInChinese})",
+                              "font_ref": "f3"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "Layout",
+                  "id": "right_padding",
+                  "orientation": "horizontal",
+                  "layout_width": "40dp",
+                  "layout_height": "match_parent",
+                  "gravity": "left",
+                  "margin_left": "0dp",
+                  "margin_top": "0dp",
+                  "childViews": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "wmRes": {
+    "background": [
+      {
+        "name": "bg_texture",
+        "icon": "@img=icon_background_texture_blue_gray.webp",
+        "value": "@color=#00FFFFFF;@img=bg.webp",
+        "foreground": ["#FF74380B", "#BF74380B", "#FF74380B", "#BF74380B", "74380B"]
+      }
+    ],
+    "fonts": {
+      "f1": {
+        "size": 39.6,
+        "color": "@foreground=0",
+        "typeface": "default",
+        "variation": "'wght' 501"
+      },
+      "f2": {
+        "size": 24.2,
+        "color": "@foreground=1",
+        "typeface": "default",
+        "variation": "'wght' 450",
+        "letterSpacing": 0.04
+      },
+      "f3": {
+        "size": 34.0,
+        "color": "@foreground=2",
+        "typeface": "default",
+        "variation": "'wght' 451",
+        "letterSpacing": 0.01
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+import React from 'react';
+import {SlidersHorizontal,MousePointer2,LockKeyhole} from 'lucide-react';
+import {root,nodes,findNode,editNode,isLocked,renameNode,nodeLabel,changePackage,setCanvas} from '../editor-state.js';
+import {NumberField,TextField,fontName} from './Controls.jsx';
+export default function Inspector({pkg,selected,effectiveScene,commit,notify}){
+ const node=findNode(pkg,selected),s=root(pkg),effective=effectiveScene?.nodes.find(n=>n.id===selected)||node;
+ const set=(property,value)=>{try{commit(editNode(pkg,selected,property,value))}catch(e){notify(e.message)}};
+ const style=effective?.textStyle||effective?.replacementStyle?.textStyle||effective?.children?.find(n=>n.textStyle)?.textStyle;
+ const fontId=effective?.fontId||effective?.fallbackFontId||effective?.replacementStyle?.fontId||effective?.children?.find(n=>n.fontId)?.fontId;
+ const disabled=pkg.readOnly||isLocked(pkg,selected);
+ const free=s.authoring?.profile==='authoring.ten-elements.v1';
+ const updateInsets=(edge,value)=>{try{commit(setCanvas(pkg,'insets',{...s.scene.canvas.insets,[edge]:value}));}catch(e){notify(e.message)}};
+ return <div className="wb-inspector"><div className="wb-panel-heading"><SlidersHorizontal size={16}/><h2>元素属性</h2></div>{node?<>
+ <div className="wb-selected-title"><span>{nodeLabel(pkg,node)}</span><small>{node.role?'预设功能区':node.type==='text'?'文字元素':node.type==='image'?'图片元素':'图层组'}</small></div>
+ {isLocked(pkg,selected)&&<p className="wb-note"><LockKeyhole size={13}/>此元素已锁定，在图层列表中解锁后可编辑。</p>}
+ <fieldset disabled={disabled}><section className="wb-property-section">
+ {free&&<TextField label="图层名称" value={nodeLabel(pkg,node)} maxLength={200} onChange={value=>{try{commit(renameNode(pkg,node.id,value))}catch(e){notify(e.message)}}}/>}
+ {node.type==='text'&&node.content.literal!==undefined&&<TextField label="文字内容" multiline value={node.content.literal} onChange={v=>set('content',v)}/>}
+ {node.type==='text'&&node.content.parts&&<p className="wb-note">此文字随示例参数变化。测试数据在「预览」面板填写，不会变成模板固定文案。</p>}
+ </section><section className="wb-property-section"><h3>位置与尺寸 <small>U</small></h3><div className="wb-two"><NumberField label="X" value={effective.bounds.offset[0]} onChange={v=>set('offsetX',v)}/><NumberField label="Y" value={effective.bounds.offset[1]} onChange={v=>set('offsetY',v)}/><NumberField label="宽度" value={effective.bounds.size[0]} min={1} onChange={v=>set('width',v)}/><NumberField label="高度" value={effective.bounds.size[1]} min={1} onChange={v=>set('height',v)}/></div><NumberField label="旋转" value={effective.rotation||0} min={-360} max={360} suffix="°" onChange={v=>set('rotation',v)}/><NumberField label="不透明度" value={Math.round((effective.opacity??1)*100)} min={0} max={100} suffix="%" onChange={v=>set('opacity',v/100)}/></section>
+ {style&&<section className="wb-property-section"><h3>文字样式</h3><label className="wb-field"><span>字体</span><select aria-label="元素字体" value={fontId} onChange={e=>set('font',e.target.value)}>{Object.keys(s.scene.fonts).map(id=><option key={id} value={id}>{fontName(pkg,id)}</option>)}</select></label><NumberField label="字号" value={Math.round(style.size*10)/10} min={1} max={600} step={.1} onChange={v=>set('style.size',v)}/><NumberField label="字距" value={style.letterSpacing||0} min={-100} max={200} step={.1} onChange={v=>set('style.letterSpacing',v)}/><label className="wb-color"><span>文字颜色</span><input aria-label="文字颜色" type="color" value={style.color.slice(0,7)} onChange={e=>set('style.color',`${e.target.value}${style.color.slice(7)||'FF'}`)}/><code>{style.color.slice(0,7).toUpperCase()}</code></label><div className="wb-segment" aria-label="文本对齐">{[['left','左对齐'],['center','居中'],['right','右对齐']].map(([v,label])=><button key={v} className={style.align===v?'is-selected':''} onClick={()=>set('style.align',v)}>{label}</button>)}</div></section>}
+ {node.type==='image'&&<section className="wb-property-section"><h3>图片样式</h3><label className="wb-field"><span>填充方式</span><select aria-label="填充方式" value={node.fit} onChange={e=>set('fit',e.target.value)}><option value="contain">完整显示</option><option value="cover">填满并裁切</option></select></label><label className="wb-switch"><span>圆形裁切</span><input type="checkbox" checked={node.shape==='circle'} onChange={e=>{try{let p=editNode(pkg,node.id,'shape',e.target.checked?'circle':'rect');if(e.target.checked)p=editNode(p,node.id,'height',effective.bounds.size[0]);commit(p);}catch(e){notify(e.message)}}}/></label></section>}
+ </fieldset></>:<div className="wb-empty-selection"><MousePointer2 size={25}/><p>选择画布或图层中的元素</p><span>拖动调整位置，或精确输入数值。</span></div>}
+ {s.scene&&<section className="wb-property-section"><h3>画布边框</h3><fieldset disabled={pkg.readOnly}><div className="wb-two">{[['top','上'],['right','右'],['bottom','下'],['left','左']].map(([edge,label])=><NumberField key={edge} label={`${label}边框`} value={effectiveScene?.canvas.insets[edge]??s.scene.canvas.insets[edge]} min={s.scene.canvas.mode==='overlay'?0:nodes(pkg).some(n=>n.bounds.reference===`frame${edge[0].toUpperCase()+edge.slice(1)}`)?1:0} max={s.scene.canvas.mode==='overlay'?0:2000} onChange={v=>updateInsets(edge,v)}/>)}</div><p className="wb-note">设计单位随照片短边缩放。边框扩展画布，不拉伸照片。</p></fieldset></section>}
+ </div>;
+}

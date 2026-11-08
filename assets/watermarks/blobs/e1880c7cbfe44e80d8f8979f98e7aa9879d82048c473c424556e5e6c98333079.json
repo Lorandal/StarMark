@@ -1,0 +1,27 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_christmas_2_name",
+    "id": "79",
+    "description": "christmas_2",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "priority": 5,
+    "exclude_cases": [
+      "200m"
+    ],
+    "limitation": {
+      "system_properties": {
+        "ro.product.device": []
+      },
+      "device_type": []
+    }
+  }
+}

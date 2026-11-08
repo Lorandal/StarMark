@@ -1,0 +1,26 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "redmi": "144水印的变体，为了解决P1 CN红标机型未内置xiaomi_FFE099_shadow.webp问题，这款水印只给P1 CN红标使用",
+    "name": "@wm_2026_national_day_146_name",
+    "id": "146",
+    "description": "2026_national_day_146",
+    "reminder": "@wm_common_reminder_v2",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "limitation": {
+    },
+    "priority": 3,
+    "position": "in",
+    "exclude_cases": [
+      "livephoto"
+    ],
+    "show_in_menu": true
+  }
+}

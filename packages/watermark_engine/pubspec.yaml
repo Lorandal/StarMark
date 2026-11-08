@@ -1,0 +1,6 @@
+name: watermark_engine
+description: Immutable watermark documents, metadata, layout and edit history.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.10.0 <4.0.0'

@@ -1,0 +1,43 @@
+{
+  "version": 1.78,
+  "metadata": {
+    "name": "@name",
+    "id": "115",
+    "description": "2025_spring_festival_115",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "reminder": "@wm_common_reminder_v3",
+    "show_in_menu": true,
+    "limitation": {
+      "custom_not_support": {
+        "ro.miui.build.region": [
+          "global"
+        ],
+        "ro.boot.product.theme_customize": [
+          "lcc"
+        ],
+        "ro.product.device": [],
+        "device_type": []
+      }
+    },
+    "priority": 1,
+    "position": "with",
+    "exclude_cases": [
+      "200m"
+    ],
+    "layer_list": [
+      "background",
+      "static_content",
+      "src_img",
+      "dynamic_lion"
+    ],
+    "gainmap_modify_version": 1
+  }
+}

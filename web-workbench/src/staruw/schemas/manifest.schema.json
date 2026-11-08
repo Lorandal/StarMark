@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:staruw:1.0:manifest",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "com.realize.starmark.watermark-manifest"
+    },
+    "manifestVersion": {
+      "const": 1
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/path"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 134217728
+          },
+          "sha256": {
+            "$ref": "#/$defs/hash"
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 2,
+      "maxItems": 511
+    },
+    "payloadDigest": {
+      "$ref": "#/$defs/hash"
+    }
+  },
+  "required": [
+    "format",
+    "manifestVersion",
+    "files",
+    "payloadDigest"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\\\x00-\\x1f\\x7f:<>\"|?*]+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

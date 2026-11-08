@@ -1,0 +1,4 @@
+StarMark template font files are bundled unchanged from the current App assets.
+Oxanium, MiSans and LG1056 retain their original embedded copyright, license and name tables.
+Model component geometry follows the App ModelLockupAssets 80-unit baseline and optical spacing.
+MarkC.svg and MarkS.svg are the user-supplied StarMark marks.

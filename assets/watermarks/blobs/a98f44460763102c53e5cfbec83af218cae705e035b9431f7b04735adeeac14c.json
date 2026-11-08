@@ -1,0 +1,29 @@
+{
+  "version": 1.78,
+  "metadata": {
+    "name": "@wm_2026_national_day_143_name",
+    "id": "143",
+    "description": "2026_national_day_143",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "exclude_cases": [
+      "200m"
+    ],
+    "priority": 4,
+    "position": "with",
+    "layer_list": [
+      "background",
+      "static_content",
+      "src_img",
+      "static_content2"
+    ],
+    "gainmap_modify_version": 1
+  }
+}

@@ -1,0 +1,1045 @@
+[
+  {
+    "id": "xiaomi-10",
+    "title": "Xiaomi 10",
+    "aliases": [
+      "Xiaomi 10"
+    ]
+  },
+  {
+    "id": "xiaomi-10-pro",
+    "title": "Xiaomi 10 Pro",
+    "aliases": [
+      "Xiaomi 10 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-10-lite",
+    "title": "Xiaomi 10 Lite",
+    "aliases": [
+      "Xiaomi 10 Lite"
+    ]
+  },
+  {
+    "id": "xiaomi-10-ultra",
+    "title": "Xiaomi 10 Ultra",
+    "aliases": [
+      "Xiaomi 10 Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-10s",
+    "title": "Xiaomi 10S",
+    "aliases": [
+      "Xiaomi 10S"
+    ]
+  },
+  {
+    "id": "xiaomi-11",
+    "title": "Xiaomi 11",
+    "aliases": [
+      "Xiaomi 11"
+    ]
+  },
+  {
+    "id": "xiaomi-11-pro",
+    "title": "Xiaomi 11 Pro",
+    "aliases": [
+      "Xiaomi 11 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-11-ultra",
+    "title": "Xiaomi 11 Ultra",
+    "aliases": [
+      "Xiaomi 11 Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-11-lite",
+    "title": "Xiaomi 11 Lite",
+    "aliases": [
+      "Xiaomi 11 Lite"
+    ]
+  },
+  {
+    "id": "xiaomi-11-lite-ne",
+    "title": "Xiaomi 11 Lite NE",
+    "aliases": [
+      "Xiaomi 11 Lite NE"
+    ]
+  },
+  {
+    "id": "xiaomi-12",
+    "title": "Xiaomi 12",
+    "aliases": [
+      "Xiaomi 12"
+    ]
+  },
+  {
+    "id": "xiaomi-12x",
+    "title": "Xiaomi 12X",
+    "aliases": [
+      "Xiaomi 12X"
+    ]
+  },
+  {
+    "id": "xiaomi-12-pro",
+    "title": "Xiaomi 12 Pro",
+    "aliases": [
+      "Xiaomi 12 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-12-pro-dimensity",
+    "title": "Xiaomi 12 Pro Dimensity",
+    "aliases": [
+      "Xiaomi 12 Pro Dimensity"
+    ]
+  },
+  {
+    "id": "xiaomi-12s",
+    "title": "Xiaomi 12S",
+    "aliases": [
+      "Xiaomi 12S"
+    ]
+  },
+  {
+    "id": "xiaomi-12s-pro",
+    "title": "Xiaomi 12S Pro",
+    "aliases": [
+      "Xiaomi 12S Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-12s-ultra",
+    "title": "Xiaomi 12S Ultra",
+    "aliases": [
+      "Xiaomi 12S Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-13",
+    "title": "Xiaomi 13",
+    "aliases": [
+      "Xiaomi 13"
+    ]
+  },
+  {
+    "id": "xiaomi-13-pro",
+    "title": "Xiaomi 13 Pro",
+    "aliases": [
+      "Xiaomi 13 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-13-ultra",
+    "title": "Xiaomi 13 Ultra",
+    "aliases": [
+      "Xiaomi 13 Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-14",
+    "title": "Xiaomi 14",
+    "aliases": [
+      "Xiaomi 14"
+    ]
+  },
+  {
+    "id": "xiaomi-14-pro",
+    "title": "Xiaomi 14 Pro",
+    "aliases": [
+      "Xiaomi 14 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-14-pro-ti",
+    "title": "Xiaomi 14 Pro Ti",
+    "aliases": [
+      "Xiaomi 14 Pro Ti"
+    ]
+  },
+  {
+    "id": "xiaomi-14-ultra",
+    "title": "Xiaomi 14 Ultra",
+    "aliases": [
+      "Xiaomi 14 Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-15",
+    "title": "Xiaomi 15",
+    "aliases": [
+      "Xiaomi 15"
+    ]
+  },
+  {
+    "id": "xiaomi-15-pro",
+    "title": "Xiaomi 15 Pro",
+    "aliases": [
+      "Xiaomi 15 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-15-ultra",
+    "title": "Xiaomi 15 Ultra",
+    "aliases": [
+      "Xiaomi 15 Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-15s-pro",
+    "title": "Xiaomi 15S Pro",
+    "aliases": [
+      "Xiaomi 15S Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-17",
+    "title": "Xiaomi 17",
+    "aliases": [
+      "Xiaomi 17"
+    ]
+  },
+  {
+    "id": "xiaomi-17-pro",
+    "title": "Xiaomi 17 Pro",
+    "aliases": [
+      "Xiaomi 17 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-17-pro-max",
+    "title": "Xiaomi 17 Pro Max",
+    "aliases": [
+      "Xiaomi 17 Pro Max"
+    ]
+  },
+  {
+    "id": "xiaomi-17-ultra",
+    "title": "Xiaomi 17 Ultra",
+    "aliases": [
+      "Xiaomi 17 Ultra"
+    ]
+  },
+  {
+    "id": "xiaomi-17-ultra-by-leica",
+    "title": "Xiaomi 17 Ultra by Leica",
+    "aliases": [
+      "Xiaomi 17 Ultra by Leica"
+    ]
+  },
+  {
+    "id": "xiaomi-17-max",
+    "title": "Xiaomi 17 Max",
+    "aliases": [
+      "Xiaomi 17 Max"
+    ]
+  },
+  {
+    "id": "xiaomi-17t",
+    "title": "Xiaomi 17T",
+    "aliases": [
+      "Xiaomi 17T"
+    ]
+  },
+  {
+    "id": "xiaomi-17t-pro",
+    "title": "Xiaomi 17T Pro",
+    "aliases": [
+      "Xiaomi 17T Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-18-pro",
+    "title": "Xiaomi 18 Pro",
+    "aliases": [
+      "Xiaomi 18 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-18-pro-max",
+    "title": "Xiaomi 18 Pro Max",
+    "aliases": [
+      "Xiaomi 18 Pro Max"
+    ]
+  },
+  {
+    "id": "xiaomi-18-fold",
+    "title": "Xiaomi 18 Fold",
+    "aliases": [
+      "Xiaomi 18 Fold"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-4",
+    "title": "Xiaomi MIX 4",
+    "aliases": [
+      "Xiaomi MIX 4"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-fold",
+    "title": "Xiaomi MIX FOLD",
+    "aliases": [
+      "Xiaomi MIX FOLD"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-fold-2",
+    "title": "Xiaomi MIX Fold 2",
+    "aliases": [
+      "Xiaomi MIX Fold 2"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-fold-3",
+    "title": "Xiaomi MIX Fold 3",
+    "aliases": [
+      "Xiaomi MIX Fold 3"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-fold-4",
+    "title": "Xiaomi MIX Fold 4",
+    "aliases": [
+      "Xiaomi MIX Fold 4"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-flip",
+    "title": "Xiaomi MIX Flip",
+    "aliases": [
+      "Xiaomi MIX Flip"
+    ]
+  },
+  {
+    "id": "xiaomi-mix-flip-2",
+    "title": "Xiaomi MIX Flip 2",
+    "aliases": [
+      "Xiaomi MIX Flip 2"
+    ]
+  },
+  {
+    "id": "xiaomi-civi",
+    "title": "Xiaomi Civi",
+    "aliases": [
+      "Xiaomi Civi"
+    ]
+  },
+  {
+    "id": "xiaomi-civi-1s",
+    "title": "Xiaomi Civi 1S",
+    "aliases": [
+      "Xiaomi Civi 1S"
+    ]
+  },
+  {
+    "id": "xiaomi-civi-2",
+    "title": "Xiaomi Civi 2",
+    "aliases": [
+      "Xiaomi Civi 2"
+    ]
+  },
+  {
+    "id": "xiaomi-civi-3",
+    "title": "Xiaomi Civi 3",
+    "aliases": [
+      "Xiaomi Civi 3"
+    ]
+  },
+  {
+    "id": "xiaomi-civi-4-pro",
+    "title": "Xiaomi Civi 4 Pro",
+    "aliases": [
+      "Xiaomi Civi 4 Pro"
+    ]
+  },
+  {
+    "id": "xiaomi-civi-5-pro",
+    "title": "Xiaomi Civi 5 Pro",
+    "aliases": [
+      "Xiaomi Civi 5 Pro"
+    ]
+  },
+  {
+    "id": "redmi-9",
+    "title": "REDMI 9",
+    "aliases": [
+      "REDMI 9"
+    ]
+  },
+  {
+    "id": "redmi-9a",
+    "title": "REDMI 9A",
+    "aliases": [
+      "REDMI 9A"
+    ]
+  },
+  {
+    "id": "redmi-10a",
+    "title": "REDMI 10A",
+    "aliases": [
+      "REDMI 10A"
+    ]
+  },
+  {
+    "id": "redmi-12",
+    "title": "REDMI 12",
+    "aliases": [
+      "REDMI 12"
+    ]
+  },
+  {
+    "id": "redmi-12r",
+    "title": "REDMI 12R",
+    "aliases": [
+      "REDMI 12R"
+    ]
+  },
+  {
+    "id": "redmi-12c",
+    "title": "REDMI 12C",
+    "aliases": [
+      "REDMI 12C"
+    ]
+  },
+  {
+    "id": "redmi-13c",
+    "title": "REDMI 13C",
+    "aliases": [
+      "REDMI 13C"
+    ]
+  },
+  {
+    "id": "redmi-13r",
+    "title": "REDMI 13R",
+    "aliases": [
+      "REDMI 13R"
+    ]
+  },
+  {
+    "id": "redmi-14c",
+    "title": "REDMI 14C",
+    "aliases": [
+      "REDMI 14C"
+    ]
+  },
+  {
+    "id": "redmi-14r",
+    "title": "REDMI 14R",
+    "aliases": [
+      "REDMI 14R"
+    ]
+  },
+  {
+    "id": "redmi-15r",
+    "title": "REDMI 15R",
+    "aliases": [
+      "REDMI 15R"
+    ]
+  },
+  {
+    "id": "redmi-17c",
+    "title": "REDMI 17C",
+    "aliases": [
+      "REDMI 17C"
+    ]
+  },
+  {
+    "id": "redmi-17",
+    "title": "REDMI 17",
+    "aliases": [
+      "REDMI 17"
+    ]
+  },
+  {
+    "id": "redmi-note-9",
+    "title": "REDMI Note 9",
+    "aliases": [
+      "REDMI Note 9"
+    ]
+  },
+  {
+    "id": "redmi-note-9-pro",
+    "title": "REDMI Note 9 Pro",
+    "aliases": [
+      "REDMI Note 9 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-10",
+    "title": "REDMI Note 10",
+    "aliases": [
+      "REDMI Note 10"
+    ]
+  },
+  {
+    "id": "redmi-note-10-pro",
+    "title": "REDMI Note 10 Pro",
+    "aliases": [
+      "REDMI Note 10 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-11se",
+    "title": "REDMI Note 11SE",
+    "aliases": [
+      "REDMI Note 11SE"
+    ]
+  },
+  {
+    "id": "redmi-note-11",
+    "title": "REDMI Note 11",
+    "aliases": [
+      "REDMI Note 11"
+    ]
+  },
+  {
+    "id": "redmi-note-11e",
+    "title": "REDMI Note 11E",
+    "aliases": [
+      "REDMI Note 11E"
+    ]
+  },
+  {
+    "id": "redmi-note-11-pro",
+    "title": "REDMI Note 11 Pro",
+    "aliases": [
+      "REDMI Note 11 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-11e-pro",
+    "title": "REDMI Note 11E Pro",
+    "aliases": [
+      "REDMI Note 11E Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-11-pro-plus",
+    "title": "REDMI Note 11 Pro+",
+    "aliases": [
+      "REDMI Note 11 Pro+"
+    ]
+  },
+  {
+    "id": "redmi-note-11t-pro",
+    "title": "REDMI Note 11T Pro",
+    "aliases": [
+      "REDMI Note 11T Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-11t-pro-plus",
+    "title": "REDMI Note 11T Pro+",
+    "aliases": [
+      "REDMI Note 11T Pro+"
+    ]
+  },
+  {
+    "id": "redmi-note-11r",
+    "title": "REDMI Note 11R",
+    "aliases": [
+      "REDMI Note 11R"
+    ]
+  },
+  {
+    "id": "redmi-note-12",
+    "title": "REDMI Note 12",
+    "aliases": [
+      "REDMI Note 12"
+    ]
+  },
+  {
+    "id": "redmi-note-12r-pro",
+    "title": "REDMI Note 12R Pro",
+    "aliases": [
+      "REDMI Note 12R Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-12r",
+    "title": "REDMI Note 12R",
+    "aliases": [
+      "REDMI Note 12R"
+    ]
+  },
+  {
+    "id": "redmi-note-12-pro",
+    "title": "REDMI Note 12 Pro",
+    "aliases": [
+      "REDMI Note 12 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-12-pro-speed",
+    "title": "REDMI Note 12 Pro Speed",
+    "aliases": [
+      "REDMI Note 12 Pro Speed"
+    ]
+  },
+  {
+    "id": "redmi-note-12-pro-plus",
+    "title": "REDMI Note 12 Pro+",
+    "aliases": [
+      "REDMI Note 12 Pro+"
+    ]
+  },
+  {
+    "id": "redmi-note-12-discovery",
+    "title": "REDMI Note 12 Discovery",
+    "aliases": [
+      "REDMI Note 12 Discovery"
+    ]
+  },
+  {
+    "id": "redmi-note-12t-pro",
+    "title": "REDMI Note 12T Pro",
+    "aliases": [
+      "REDMI Note 12T Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-12-turbo",
+    "title": "REDMI Note 12 Turbo",
+    "aliases": [
+      "REDMI Note 12 Turbo"
+    ]
+  },
+  {
+    "id": "redmi-note-13",
+    "title": "REDMI Note 13",
+    "aliases": [
+      "REDMI Note 13"
+    ]
+  },
+  {
+    "id": "redmi-note-13-pro",
+    "title": "REDMI Note 13 Pro",
+    "aliases": [
+      "REDMI Note 13 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-13-pro-plus",
+    "title": "REDMI Note 13 Pro+",
+    "aliases": [
+      "REDMI Note 13 Pro+"
+    ]
+  },
+  {
+    "id": "redmi-note-13r",
+    "title": "REDMI Note 13R",
+    "aliases": [
+      "REDMI Note 13R"
+    ]
+  },
+  {
+    "id": "redmi-note-13r-pro",
+    "title": "REDMI Note 13R Pro",
+    "aliases": [
+      "REDMI Note 13R Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-14",
+    "title": "REDMI Note 14",
+    "aliases": [
+      "REDMI Note 14"
+    ]
+  },
+  {
+    "id": "redmi-note-14-pro",
+    "title": "REDMI Note 14 Pro",
+    "aliases": [
+      "REDMI Note 14 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-14-pro-plus",
+    "title": "REDMI Note 14 Pro+",
+    "aliases": [
+      "REDMI Note 14 Pro+"
+    ]
+  },
+  {
+    "id": "redmi-note-15r-pro",
+    "title": "REDMI Note 15R Pro",
+    "aliases": [
+      "REDMI Note 15R Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-15",
+    "title": "REDMI Note 15",
+    "aliases": [
+      "REDMI Note 15"
+    ]
+  },
+  {
+    "id": "redmi-note-15-pro",
+    "title": "REDMI Note 15 Pro",
+    "aliases": [
+      "REDMI Note 15 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-15-pro-plus",
+    "title": "REDMI Note 15 Pro+",
+    "aliases": [
+      "REDMI Note 15 Pro+"
+    ]
+  },
+  {
+    "id": "redmi-note-15r",
+    "title": "REDMI Note 15R",
+    "aliases": [
+      "REDMI Note 15R"
+    ]
+  },
+  {
+    "id": "redmi-note-17",
+    "title": "REDMI Note 17",
+    "aliases": [
+      "REDMI Note 17"
+    ]
+  },
+  {
+    "id": "redmi-note-17-pro",
+    "title": "REDMI Note 17 Pro",
+    "aliases": [
+      "REDMI Note 17 Pro"
+    ]
+  },
+  {
+    "id": "redmi-note-17-pro-new",
+    "title": "REDMI Note 17 Pro New",
+    "aliases": [
+      "REDMI Note 17 Pro New"
+    ]
+  },
+  {
+    "id": "redmi-k30",
+    "title": "REDMI K30",
+    "aliases": [
+      "REDMI K30"
+    ]
+  },
+  {
+    "id": "redmi-k30i",
+    "title": "REDMI K30i",
+    "aliases": [
+      "REDMI K30i"
+    ]
+  },
+  {
+    "id": "redmi-k30-pro",
+    "title": "REDMI K30 Pro",
+    "aliases": [
+      "REDMI K30 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k30-pro-zoom",
+    "title": "REDMI K30 Pro Zoom",
+    "aliases": [
+      "REDMI K30 Pro Zoom"
+    ]
+  },
+  {
+    "id": "redmi-k30-ultra",
+    "title": "REDMI K30 Ultra",
+    "aliases": [
+      "REDMI K30 Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k30s-ultra",
+    "title": "REDMI K30S Ultra",
+    "aliases": [
+      "REDMI K30S Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k40",
+    "title": "REDMI K40",
+    "aliases": [
+      "REDMI K40"
+    ]
+  },
+  {
+    "id": "redmi-k40-pro",
+    "title": "REDMI K40 Pro",
+    "aliases": [
+      "REDMI K40 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k40-pro-plus",
+    "title": "REDMI K40 Pro+",
+    "aliases": [
+      "REDMI K40 Pro+"
+    ]
+  },
+  {
+    "id": "redmi-k40-gaming",
+    "title": "REDMI K40 Gaming",
+    "aliases": [
+      "REDMI K40 Gaming"
+    ]
+  },
+  {
+    "id": "redmi-k40s",
+    "title": "REDMI K40S",
+    "aliases": [
+      "REDMI K40S"
+    ]
+  },
+  {
+    "id": "redmi-k50",
+    "title": "REDMI K50",
+    "aliases": [
+      "REDMI K50"
+    ]
+  },
+  {
+    "id": "redmi-k50-pro",
+    "title": "REDMI K50 Pro",
+    "aliases": [
+      "REDMI K50 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k50g",
+    "title": "REDMI K50G",
+    "aliases": [
+      "REDMI K50G"
+    ]
+  },
+  {
+    "id": "redmi-k50-ultra",
+    "title": "REDMI K50 Ultra",
+    "aliases": [
+      "REDMI K50 Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k60",
+    "title": "REDMI K60",
+    "aliases": [
+      "REDMI K60"
+    ]
+  },
+  {
+    "id": "redmi-k60-pro",
+    "title": "REDMI K60 Pro",
+    "aliases": [
+      "REDMI K60 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k60e",
+    "title": "REDMI K60E",
+    "aliases": [
+      "REDMI K60E"
+    ]
+  },
+  {
+    "id": "redmi-k60-ultra",
+    "title": "REDMI K60 Ultra",
+    "aliases": [
+      "REDMI K60 Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k70",
+    "title": "REDMI K70",
+    "aliases": [
+      "REDMI K70"
+    ]
+  },
+  {
+    "id": "redmi-k70-pro",
+    "title": "REDMI K70 Pro",
+    "aliases": [
+      "REDMI K70 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k70e",
+    "title": "REDMI K70E",
+    "aliases": [
+      "REDMI K70E"
+    ]
+  },
+  {
+    "id": "redmi-k70-ultra",
+    "title": "REDMI K70 Ultra",
+    "aliases": [
+      "REDMI K70 Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k80",
+    "title": "REDMI K80",
+    "aliases": [
+      "REDMI K80"
+    ]
+  },
+  {
+    "id": "redmi-k80-pro",
+    "title": "REDMI K80 Pro",
+    "aliases": [
+      "REDMI K80 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k80-pro-alsc",
+    "title": "REDMI K80 Pro ALSC",
+    "aliases": [
+      "REDMI K80 Pro ALSC"
+    ]
+  },
+  {
+    "id": "redmi-k80-ultra",
+    "title": "REDMI K80 Ultra",
+    "aliases": [
+      "REDMI K80 Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k90",
+    "title": "REDMI K90",
+    "aliases": [
+      "REDMI K90"
+    ]
+  },
+  {
+    "id": "redmi-k90-pro-max",
+    "title": "REDMI K90 Pro Max",
+    "aliases": [
+      "REDMI K90 Pro Max"
+    ]
+  },
+  {
+    "id": "redmi-k90-pro-max-alsc",
+    "title": "REDMI K90 Pro Max ALSC",
+    "aliases": [
+      "REDMI K90 Pro Max ALSC"
+    ]
+  },
+  {
+    "id": "redmi-k90-max",
+    "title": "REDMI K90 Max",
+    "aliases": [
+      "REDMI K90 Max"
+    ]
+  },
+  {
+    "id": "redmi-k90-ultra",
+    "title": "REDMI K90 Ultra",
+    "aliases": [
+      "REDMI K90 Ultra"
+    ]
+  },
+  {
+    "id": "redmi-k100",
+    "title": "REDMI K100",
+    "aliases": [
+      "REDMI K100"
+    ]
+  },
+  {
+    "id": "redmi-k100-pro",
+    "title": "REDMI K100 Pro",
+    "aliases": [
+      "REDMI K100 Pro"
+    ]
+  },
+  {
+    "id": "redmi-k100-pro-max",
+    "title": "REDMI K100 Pro Max",
+    "aliases": [
+      "REDMI K100 Pro Max"
+    ]
+  },
+  {
+    "id": "redmi-turbo-3",
+    "title": "REDMI Turbo 3",
+    "aliases": [
+      "REDMI Turbo 3"
+    ]
+  },
+  {
+    "id": "redmi-turbo-4",
+    "title": "REDMI Turbo 4",
+    "aliases": [
+      "REDMI Turbo 4"
+    ]
+  },
+  {
+    "id": "redmi-turbo-4-pro",
+    "title": "REDMI Turbo 4 Pro",
+    "aliases": [
+      "REDMI Turbo 4 Pro"
+    ]
+  },
+  {
+    "id": "redmi-turbo-5",
+    "title": "REDMI Turbo 5",
+    "aliases": [
+      "REDMI Turbo 5"
+    ]
+  },
+  {
+    "id": "redmi-turbo-5-max",
+    "title": "REDMI Turbo 5 Max",
+    "aliases": [
+      "REDMI Turbo 5 Max"
+    ]
+  },
+  {
+    "id": "redmi-10x",
+    "title": "REDMI 10X",
+    "aliases": [
+      "REDMI 10X"
+    ]
+  },
+  {
+    "id": "redmi-10x-pro",
+    "title": "REDMI 10X Pro",
+    "aliases": [
+      "REDMI 10X Pro"
+    ]
+  },
+  {
+    "id": "redmi-r70",
+    "title": "REDMI R70",
+    "aliases": [
+      "REDMI R70"
+    ]
+  },
+  {
+    "id": "redmi-r70m",
+    "title": "REDMI R70m",
+    "aliases": [
+      "REDMI R70m"
+    ]
+  },
+  {
+    "id": "redmi-m100",
+    "title": "REDMI M100",
+    "aliases": [
+      "REDMI M100"
+    ]
+  },
+  {
+    "id": "redmi-m100-pro",
+    "title": "REDMI M100 Pro",
+    "aliases": [
+      "REDMI M100 Pro"
+    ]
+  }
+]

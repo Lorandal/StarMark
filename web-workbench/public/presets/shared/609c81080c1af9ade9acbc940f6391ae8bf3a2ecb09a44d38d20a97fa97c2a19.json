@@ -1,0 +1,1126 @@
+{
+  "format": "com.realize.starmark.model-catalog",
+  "version": 1,
+  "entries": [
+    {
+      "model": "Xiaomi 12",
+      "size": [
+        611.0500000000001,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-2-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 51.73,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 12 Pro",
+      "size": [
+        809.4900000000001,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-2-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 51.73,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 641.6500000000001,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 12 Ultra",
+      "size": [
+        871.9000000000001,
+        85.1
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 5.099999999999994,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 5.099999999999994,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-2-black",
+          "x": 559.32,
+          "y": 5.099999999999994,
+          "width": 51.73,
+          "height": 80
+        },
+        {
+          "resourceId": "model-ultra-black",
+          "x": 641.6500000000001,
+          "y": 0,
+          "width": 230.25,
+          "height": 85.1
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 13",
+      "size": [
+        613.51,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-3-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 54.19,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 13 Pro",
+      "size": [
+        811.95,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-3-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 54.19,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 644.11,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 13 Ultra",
+      "size": [
+        874.36,
+        85.1
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 5.099999999999994,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 5.099999999999994,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-3-black",
+          "x": 559.32,
+          "y": 5.099999999999994,
+          "width": 54.19,
+          "height": 80
+        },
+        {
+          "resourceId": "model-ultra-black",
+          "x": 644.11,
+          "y": 0,
+          "width": 230.25,
+          "height": 85.1
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 14",
+      "size": [
+        620.5,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-4-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 61.18,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 14 Pro",
+      "size": [
+        818.94,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-4-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 61.18,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 651.1,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 14 Ultra",
+      "size": [
+        881.35,
+        85.1
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 5.099999999999994,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 5.099999999999994,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-4-black",
+          "x": 559.32,
+          "y": 5.099999999999994,
+          "width": 61.18,
+          "height": 80
+        },
+        {
+          "resourceId": "model-ultra-black",
+          "x": 651.1,
+          "y": 0,
+          "width": 230.25,
+          "height": 85.1
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 15",
+      "size": [
+        615.58,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-5-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 56.26,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 15 Pro",
+      "size": [
+        814.0200000000001,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-5-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 56.26,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 646.1800000000001,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 15 Ultra",
+      "size": [
+        876.4300000000001,
+        85.1
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 5.099999999999994,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 5.099999999999994,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-5-black",
+          "x": 559.32,
+          "y": 5.099999999999994,
+          "width": 56.26,
+          "height": 80
+        },
+        {
+          "resourceId": "model-ultra-black",
+          "x": 646.1800000000001,
+          "y": 0,
+          "width": 230.25,
+          "height": 85.1
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 16",
+      "size": [
+        615.21,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-6-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 55.89,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 16 Pro",
+      "size": [
+        813.6500000000001,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-6-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 55.89,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 645.8100000000001,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 16 Ultra",
+      "size": [
+        876.0600000000001,
+        85.1
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 5.099999999999994,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 5.099999999999994,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-6-black",
+          "x": 559.32,
+          "y": 5.099999999999994,
+          "width": 55.89,
+          "height": 80
+        },
+        {
+          "resourceId": "model-ultra-black",
+          "x": 645.8100000000001,
+          "y": 0,
+          "width": 230.25,
+          "height": 85.1
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 17",
+      "size": [
+        609.72,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-7-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 50.4,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 17 Pro",
+      "size": [
+        808.1600000000001,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-7-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 50.4,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 640.32,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 17 Ultra",
+      "size": [
+        870.57,
+        85.1
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 5.099999999999994,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 5.099999999999994,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-7-black",
+          "x": 559.32,
+          "y": 5.099999999999994,
+          "width": 50.4,
+          "height": 80
+        },
+        {
+          "resourceId": "model-ultra-black",
+          "x": 640.32,
+          "y": 0,
+          "width": 230.25,
+          "height": 85.1
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 17 Pro Max",
+      "size": [
+        1046.0700000000002,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-7-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 50.4,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 640.32,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        },
+        {
+          "resourceId": "model-max-black",
+          "x": 838.5600000000001,
+          "y": 0,
+          "width": 207.51,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 17 Ultra by Leica",
+      "size": [
+        1284.16,
+        109.86
+      ],
+      "baseline": 85.1,
+      "components": [
+        {
+          "resourceId": "model-leica-edition-black",
+          "x": 0,
+          "y": 0,
+          "width": 1284.16,
+          "height": 109.86
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi MIX Flip",
+      "size": [
+        885.22,
+        101.5
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-mix-flip-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 363.25,
+          "height": 101.5
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi MIX Fold 4",
+      "size": [
+        1010.52,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-mix-fold-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 396.77,
+          "height": 80
+        },
+        {
+          "resourceId": "model-4-black",
+          "x": 949.34,
+          "y": 0,
+          "width": 61.18,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi Civi 4 Pro",
+      "size": [
+        1036.03,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-civi-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 223.84,
+          "height": 80
+        },
+        {
+          "resourceId": "model-4-black",
+          "x": 776.4100000000001,
+          "y": 0,
+          "width": 61.18,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 868.19,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi Pad 7 Pro",
+      "size": [
+        977.6700000000001,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pad-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 176.26,
+          "height": 80
+        },
+        {
+          "resourceId": "model-7-black",
+          "x": 728.83,
+          "y": 0,
+          "width": 50.4,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 809.83,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "Xiaomi 14T Pro",
+      "size": [
+        887.25,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-xiaomi-black",
+          "x": 0,
+          "y": 0,
+          "width": 476.37,
+          "height": 80
+        },
+        {
+          "resourceId": "model-1-black",
+          "x": 521.97,
+          "y": 0,
+          "width": 26.95,
+          "height": 80
+        },
+        {
+          "resourceId": "model-4-black",
+          "x": 559.32,
+          "y": 0,
+          "width": 61.18,
+          "height": 80
+        },
+        {
+          "resourceId": "model-t-black",
+          "x": 622.5,
+          "y": 0,
+          "width": 66.31,
+          "height": 80
+        },
+        {
+          "resourceId": "model-pro-black",
+          "x": 719.41,
+          "y": 0,
+          "width": 167.84,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI K70",
+      "size": [
+        573.7799932861328,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-k70-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 195.2899932861328,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI K70 Pro",
+      "size": [
+        777.0300085449219,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-k70-pro-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 398.5400085449219,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI K80",
+      "size": [
+        587.760004272461,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-k80-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 209.27000427246094,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI K80 Pro",
+      "size": [
+        791.0099890136719,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-k80-pro-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 412.5199890136719,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI K90",
+      "size": [
+        579.2199957275391,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-k90-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 200.72999572753906,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI K90 Pro",
+      "size": [
+        782.4700109863281,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-k90-pro-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 403.9800109863281,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI Note 13 Pro",
+      "size": [
+        966.5299780273438,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-note-13-pro-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 588.0399780273438,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI Note 14 Pro",
+      "size": [
+        966.750009765625,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-note-14-pro-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 588.260009765625,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI Turbo 4",
+      "size": [
+        766.729990234375,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-turbo-4-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 388.239990234375,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "model": "REDMI Turbo 4 Pro",
+      "size": [
+        969.979990234375,
+        80
+      ],
+      "baseline": 80,
+      "components": [
+        {
+          "resourceId": "model-redmi-black",
+          "x": 0,
+          "y": 0,
+          "width": 332.89,
+          "height": 80
+        },
+        {
+          "resourceId": "redmi-turbo-4-pro-black",
+          "x": 378.49,
+          "y": 0,
+          "width": 591.489990234375,
+          "height": 80
+        }
+      ]
+    }
+  ]
+}

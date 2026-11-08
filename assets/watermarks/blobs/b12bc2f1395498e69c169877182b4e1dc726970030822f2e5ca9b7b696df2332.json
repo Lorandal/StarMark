@@ -1,0 +1,23 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_2026_national_day_142_name",
+    "id": "142",
+    "description": "2026_national_day_142",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "exclude_cases": [
+      "200m"
+    ],
+    "priority": 2,
+    "position": "out",
+    "show_in_menu": true
+  }
+}

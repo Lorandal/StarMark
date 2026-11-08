@@ -1,0 +1,37 @@
+{
+  "version": 1.0,
+  "metadata": {
+    "name": "@wm_leica_94_name",
+    "id": "94",
+    "description": "leica_94",
+    "reminder_not_support_mode": [
+      "front",
+      "multi",
+      "raw",
+      "200m",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "limitation": {
+      "device_type": [
+        "leica"
+      ],
+      "system_properties": {
+        "ro.boot.product.theme_customize": "lcc"
+      }
+    },
+    "priority": 0.9,
+    "position": "out",
+    "exclude_cases": [
+      "front",
+      "multi",
+      "cosmetic",
+      "doc",
+      "pano",
+      "mimoji",
+      "200m"
+    ]
+  }
+}

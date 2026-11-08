@@ -1,0 +1,38 @@
+{
+  "version": 1.78,
+  "metadata": {
+    "name": "@name",
+    "id": "121",
+    "description": "sports_121",
+    "reminder_not_support_mode": [
+      "multi",
+      "raw",
+      "doc",
+      "pano",
+      "mimoji",
+      "instant"
+    ],
+    "reminder": "@wm_common_reminder_v3",
+    "show_in_menu": false,
+    "limitation": {
+      "custom_not_support": {
+        "ro.miui.build.region": [
+          "global"
+        ],
+        "ro.boot.product.theme_customize": [
+          "lcc"
+        ],
+        "ro.product.device": [],
+        "device_type": []
+      }
+    },
+    "priority": 0.8,
+    "position": "in",
+    "layer_list": [
+      "background",
+      "src_img",
+      "static_content",
+      "dynamic_content"
+    ]
+  }
+}

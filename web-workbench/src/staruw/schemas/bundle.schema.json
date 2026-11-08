@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:staruw:1.0:bundle",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "com.realize.starmark.watermark-bundle"
+    },
+    "bundleVersion": {
+      "const": "1.0.0"
+    },
+    "standard": {
+      "const": "StarUW"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/path"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          },
+          "sha256": {
+            "$ref": "#/$defs/hash"
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 100
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_-]*(?:\\.[a-z][a-z0-9_-]*)+$"
+      },
+      "additionalProperties": {
+        "type": "object"
+      },
+      "maxProperties": 64
+    }
+  },
+  "required": [
+    "format",
+    "bundleVersion",
+    "packages"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\\\x00-\\x1f\\x7f:<>\"|?*]+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

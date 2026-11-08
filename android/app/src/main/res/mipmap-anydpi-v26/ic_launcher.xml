@@ -1,0 +1,5 @@
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/starmark_icon_background" />
+    <foreground android:drawable="@drawable/starmark_launcher_foreground" />
+    <monochrome android:drawable="@drawable/starmark_splash_logo" />
+</adaptive-icon>
