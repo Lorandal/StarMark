@@ -39,6 +39,7 @@ import '../services/staruw/share_image.dart';
 import '../services/staruw/export.dart';
 import '../services/staruw/font_file.dart';
 import '../services/staruw/package_validation.dart';
+import '../services/parameter_icon_removal.dart';
 export '../services/watermark_style.dart';
 
 class EditorController extends ChangeNotifier {
@@ -71,15 +72,38 @@ class EditorController extends ChangeNotifier {
   ParameterIconLibrary get parameterIconLibrary =>
       _parameterIconLibrary ??= ParameterIconLibrary(directory!);
   GlobalParameterIcon? _globalParameterIcon;
+  int _iconRemovalRevision = -1;
+  Expando<EditDocument> _iconFallbacks = Expando<EditDocument>();
   bool get usesGlobalParameterIcon => _globalParameterIcon != null;
-  EditDocument effectiveDocument([EditDocument? value]) =>
-      _globalParameterIcon?.apply(value ?? document) ?? value ?? document;
+  EditDocument _withoutDeletedIcons(EditDocument value) {
+    final removed = _parameterIconLibrary?.removed ?? const <String>{};
+    if (removed.isEmpty) return value;
+    if (_iconRemovalRevision != _parameterIconLibrary!.removalRevision) {
+      _iconRemovalRevision = _parameterIconLibrary!.removalRevision;
+      _iconFallbacks = Expando<EditDocument>();
+    }
+    return _iconFallbacks[value] ??= EditDocument.fromJson(
+      withoutParameterIcons(value.toJson(), removed),
+    );
+  }
+
+  EditDocument effectiveDocument([EditDocument? value]) {
+    final local = _withoutDeletedIcons(value ?? document);
+    return _globalParameterIcon?.apply(local) ?? local;
+  }
+
   Future<void> setGlobalParameterIcon({
     required bool enabled,
     required String asset,
     required String shape,
   }) async {
-    if (enabled) await parameterIconLibrary.ensureAsset(asset);
+    if (enabled) {
+      await parameterIconLibrary.initialize();
+      if (parameterIconLibrary.removed.contains(asset)) {
+        asset = builtinEmblems.first['asset']!;
+      }
+      await parameterIconLibrary.ensureAsset(asset);
+    }
     if (_globalParameterIcon?.asset == asset &&
             _globalParameterIcon?.shape == shape &&
             enabled ||
@@ -608,6 +632,7 @@ class EditorController extends ChangeNotifier {
       modelCatalog = await loadPresetModels();
       if (!testMode) {
         directory = Directory((await NativeBridge.call<String>('directory'))!);
+        await parameterIconLibrary.initialize();
         await loadImportedFonts();
         stage('private-directory');
         userStyles = await watermarkRepository.list();
@@ -646,6 +671,14 @@ class EditorController extends ChangeNotifier {
         }
         await loadDrafts();
         stage('drafts');
+      }
+      if (directory != null) {
+        await parameterIconLibrary.initialize();
+        // Finish an interrupted deletion before a later import can clear its
+        // tombstone and expose unsanitized draft or preference references.
+        if (parameterIconLibrary.removed.isNotEmpty) {
+          await resetDeletedParameterIcons();
+        }
       }
       final remembered = await templatePreferences?.remembered(
         document.packageId,
@@ -1209,6 +1242,7 @@ class EditorController extends ChangeNotifier {
       await parameterIconLibrary.register(
         id,
         picked['title'] as String? ?? '自定义图标',
+        restore: true,
       );
     }
     apply(candidate, '导入区域图片');
@@ -1254,6 +1288,69 @@ class EditorController extends ChangeNotifier {
     await _prepareRegions(candidate);
     if (_disposed || token != revision) return;
     apply(candidate, '更换参数图标');
+  }
+
+  Future<void> resetDeletedParameterIcons({bool persist = true}) async {
+    final removed = parameterIconLibrary.removed;
+    if (removed.isEmpty) return;
+    if (_globalParameterIcon != null &&
+        removed.contains(_globalParameterIcon!.asset)) {
+      await setGlobalParameterIcon(
+        enabled: true,
+        asset: builtinEmblems.first['asset']!,
+        shape: _globalParameterIcon!.shape,
+      );
+    }
+    _saveTimer?.cancel();
+    await _writeTail;
+    history = EditHistory.fromJson(
+      withoutParameterIcons(history.toJson(), removed),
+    );
+    userStyles = [
+      for (final style in userStyles)
+        StylePreset.fromJson(withoutParameterIcons(style.toJson(), removed)),
+    ];
+    revision++;
+    if (persist) {
+      await templatePreferences?.removeParameterIcons(removed);
+      final folder = Directory('${directory!.path}/drafts');
+      final files = <File>[
+        if (await folder.exists())
+          ...await folder
+              .list(followLinks: false)
+              .where(
+                (e) =>
+                    e is File &&
+                    (e.path.endsWith('.json') || e.path.endsWith('.json.bak')),
+              )
+              .cast<File>()
+              .toList(),
+        for (final suffix in ['', '.bak'])
+          File('${directory!.path}/styles.json$suffix'),
+      ];
+      for (final file in files) {
+        if (!await file.exists()) continue;
+        final original = await file.readAsString();
+        dynamic data;
+        try {
+          data = jsonDecode(original);
+        } on FormatException {
+          continue;
+        }
+        final cleaned = jsonEncode(withoutParameterIcons(data, removed));
+        if (cleaned == original) continue;
+        final pending = File('${file.path}.icon-clean.tmp');
+        try {
+          await pending.writeAsString(cleaned, flush: true);
+          await pending.rename(file.path);
+        } finally {
+          if (await pending.exists()) await pending.delete();
+        }
+      }
+      await loadDrafts();
+    }
+    await prepareResources();
+    notifyListeners();
   }
 
   Future<StaruwRenderResources> _staruwResourcesFor(
@@ -1465,6 +1562,7 @@ class EditorController extends ChangeNotifier {
         await parameterIconLibrary.register(
           assetId,
           picked['title'] as String? ?? '自定义图标',
+          restore: true,
         );
       }
       apply(candidate, '导入水印图片');
@@ -2290,7 +2388,9 @@ class EditorController extends ChangeNotifier {
     // Drafts embed their native definition. Refresh retired bundled resources
     // without changing the saved photo, user controls, signatures or history.
     final refreshed = candidate.entries
-        .map((entry) => _currentFactoryMarks(entry.document))
+        .map(
+          (entry) => _withoutDeletedIcons(_currentFactoryMarks(entry.document)),
+        )
         .toList();
     if (List.generate(
       refreshed.length,
@@ -2401,10 +2501,10 @@ class EditorController extends ChangeNotifier {
       });
       final requiresHdr =
           a.hdr ||
-          a.hdrUncertain ||
           features?['hdr'] == true ||
           features?['hdrUncertain'] == true ||
-          (features?['hdr'] == null && features?['hdrPossible'] == true);
+          (features?['hdr'] == null &&
+              (a.hdrUncertain || features?['hdrPossible'] == true));
       final package = d.packageId.isNotEmpty
           ? await _loadPackage(d.packageId)
           : null;

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:watermark_engine/watermark_engine.dart';
 import 'staruw/contract.dart';
 import 'staruw/controls.dart';
+import 'parameter_icon_removal.dart';
 
 /// Design only. Package config and resource bindings remain authoritative.
 /// Captured EXIF, modelOverride, location text and source paths are never stored.
@@ -264,4 +265,22 @@ class TemplatePreferences {
   }
 
   Future<void> flush() => _tail;
+
+  Future<void> removeParameterIcons(Set<String> removed) {
+    final work = _tail.then((_) async {
+      await _load();
+      final next =
+          withoutParameterIcons(_records!, removed) as Map<String, dynamic>;
+      final temporary = File('${_file.path}.tmp');
+      await directory.create(recursive: true);
+      await temporary.writeAsString(
+        jsonEncode({'version': 1, 'templates': next}),
+        flush: true,
+      );
+      await temporary.rename(_file.path);
+      _records = next;
+    });
+    _tail = work.catchError((Object _) {});
+    return work;
+  }
 }

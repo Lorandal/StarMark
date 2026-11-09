@@ -3,6 +3,8 @@ package dev.starmark.starmark.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,6 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -49,6 +56,7 @@ internal fun ParameterIconSettingsCard(state: Map<*, *>, command: UiCommand) {
         onSelected = { command.send("settings.update", "patch" to mapOf("defaultParameterIcon" to it)) },
         onImport = { command.send("parameterIcon.import") },
         onShape = { command.send("settings.update", "patch" to mapOf("defaultParameterIconShape" to it)) },
+        onDelete = { command.send("parameterIcon.delete", "asset" to it) },
     )
 }
 
@@ -58,8 +66,12 @@ internal fun ParameterIconChoiceCard(
     icons: List<Map<*, *>>, chosen: String, shape: String, enabled: Boolean, reduceMotion: Boolean,
     tag: String, onSelected: (String) -> Unit, onImport: () -> Unit, onShape: (String) -> Unit,
     onDefault: (() -> Unit)? = null, summary: String? = null,
+    onDelete: ((String) -> Unit)? = null,
 ) {
     val scroll = rememberLazyListState()
+    val haptic = LocalHapticFeedback.current
+    var deleteBadge by remember(tag) { mutableStateOf<String?>(null) }
+    var confirming by remember(tag) { mutableStateOf<String?>(null) }
     val choices = if (onDefault != null) listOf(mapOf("id" to "default", "asset" to "", "title" to "模板默认图标")) + icons else icons
     LaunchedEffect(chosen, choices.size) {
         val index = choices.indexOfFirst { it.text("asset") == chosen }
@@ -74,13 +86,20 @@ internal fun ParameterIconChoiceCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             items(choices, key = { it.text("id") }) { icon ->
                 val active = chosen == icon.text("asset")
+                val asset = icon.text("asset")
+                val deletable = icon.flag("deletable") && onDelete != null
                 val interaction = remember { MutableInteractionSource() }
-                Box(Modifier.size(60.dp).testTag("$tag.${icon.text("id")}")
+                Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(60.dp).testTag("$tag.${icon.text("id")}")
                     .semantics { selected = active; contentDescription = icon.text("title") }
-                    .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.RadioButton,
-                        onClick = hapticClick { if (icon.text("asset").isEmpty()) onDefault?.invoke() else onSelected(icon.text("asset")) }),
-                    contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(60.dp).stockPress(interaction, StockPressKind.Banner, enabled)
+                    .combinedClickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.RadioButton,
+                        onLongClickLabel = if (deletable) "显示删除图标按钮" else null,
+                        onLongClick = if (deletable) ({
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            deleteBadge = asset
+                        }) else null,
+                        onClick = hapticClick { deleteBadge = null; if (asset.isEmpty()) onDefault?.invoke() else onSelected(asset) })
+                        .stockPress(interaction, StockPressKind.Banner, enabled)
                         .then(if (active) Modifier.border(2.dp, primary, CircleShape) else Modifier), contentAlignment = Alignment.Center) {
                         if (icon.text("asset").isEmpty()) {
                             Box(Modifier.size(48.dp).border(1.dp, MiuixTheme.colorScheme.outline.copy(alpha = .4f), CircleShape), contentAlignment = Alignment.Center) {
@@ -88,6 +107,18 @@ internal fun ParameterIconChoiceCard(
                             }
                         } else PhotoThumbnail(icon.text("image"), Modifier.size(48.dp).clip(CircleShape).testTag("$tag.face.${icon.text("id")}"),
                             contentScale = ContentScale.Fit, cornerRadius = 24.dp, decodeEdge = 144)
+                    }
+                    if (deleteBadge == asset && deletable) {
+                        Box(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp).size(32.dp)
+                            .testTag("$tag.delete.${icon.text("id")}")
+                            .semantics { contentDescription = "删除图标 ${icon.text("title")}" }
+                            .clickable(enabled = enabled, role = Role.Button, onClick = hapticClick { confirming = asset }),
+                            contentAlignment = Alignment.Center) {
+                            Canvas(Modifier.size(20.dp).background(MiuixTheme.colorScheme.error, CircleShape)) {
+                                drawLine(Color.White, Offset(size.width * .25f, size.height * .5f),
+                                    Offset(size.width * .75f, size.height * .5f), 2.dp.toPx(), StrokeCap.Round)
+                            }
+                        }
                     }
                 }
             }
@@ -117,6 +148,12 @@ internal fun ParameterIconChoiceCard(
         ParameterIconShapePreference(shape, enabled && (onDefault == null || chosen.isNotEmpty()), Modifier.testTag("$tag.shape"), onShape)
         if (summary != null) SupportingText(summary, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
     }
+    confirming?.let { asset ->
+        LibraryDeleteDialog(listOf(asset), !enabled, "图标", "", "$tag.icon",
+            onDismiss = { confirming = null },
+            onConfirm = { confirming = null; deleteBadge = null; onDelete?.invoke(asset) },
+            title = "确认删除图标", summary = "图标删除后，使用该图标的草稿将恢复为默认图标")
+    }
 }
 
 @Composable
@@ -135,5 +172,6 @@ internal fun ParameterIconRegionCard(state: Map<*, *>, command: UiCommand) {
         onShape = { command.patch("图标形状", "regionReplacements" to (replacements.stringKeys() + ("parameters" to (design.stringKeys() + ("shape" to it))))) },
         onDefault = if (global) null else ({ command.patch("恢复模板图标", "regionReplacements" to (replacements.stringKeys() - "parameters")) }),
         summary = if (global) "已由实验性功能中的“替换默认参数图标”统一设置" else null,
+        onDelete = { command.send("parameterIcon.delete", "asset" to it) },
     )
 }

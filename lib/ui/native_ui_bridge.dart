@@ -135,6 +135,12 @@ class NativeUiBridge extends ChangeNotifier {
       ..remove('resourceBindings')
       ..remove('staruwConfig')
       ..remove('staruwReport');
+    if (doc.xiaomiConfig != null) {
+      document['xiaomiOptions'] = effectiveMetadataOptions(
+        editor.asset.metadata,
+        doc.xiaomiOptions,
+      );
+    }
     final layout = editor.layout;
     return {
       'template': {
@@ -1020,6 +1026,7 @@ class NativeUiBridge extends ChangeNotifier {
             'region.builtin',
             'region.icon',
             'parameterIcon.load',
+            'parameterIcon.delete',
             'font.auto',
             'font.choose',
             'model.choose',
@@ -1053,6 +1060,18 @@ class NativeUiBridge extends ChangeNotifier {
         }
       }
       switch (action) {
+        case 'parameterIcon.delete':
+          await _exclusive(() async {
+            final asset = command['asset'] as String? ?? '';
+            await photoEditor.parameterIconLibrary.delete(asset);
+            if (_settings['defaultParameterIcon'] == asset) {
+              await _updateSettings({
+                'defaultParameterIcon': builtinEmblems.first['asset'],
+              });
+            }
+            await _finishParameterIconDeletion();
+            await _loadParameterIcons();
+          }, title: '正在删除图标…');
         case 'parameterIcon.load':
           await _loadParameterIcons();
         case 'parameterIcon.import':
@@ -1062,6 +1081,7 @@ class NativeUiBridge extends ChangeNotifier {
             if (picked['bytes'] is! Uint8List) {
               throw const FormatException('图片无法读取');
             }
+            await _finishParameterIconDeletion();
             final asset = await photoEditor.parameterIconLibrary.importBytes(
               picked['bytes'] as Uint8List,
               picked['title'] as String? ?? '自定义图标',
@@ -1087,6 +1107,7 @@ class NativeUiBridge extends ChangeNotifier {
           await _exclusive(
             () async {
               if (action == 'staruw.image') {
+                await _finishParameterIconDeletion();
                 await editor.importStaruwImage(id);
               } else if (action == 'staruw.font') {
                 await editor.importStaruwFont(id);
@@ -1390,6 +1411,7 @@ class NativeUiBridge extends ChangeNotifier {
             if (region == 'parameters' && editor.usesGlobalParameterIcon) {
               throw const FormatException('参数图标已由实验性功能统一设置');
             }
+            if (region == 'parameters') await _finishParameterIconDeletion();
             await editor.importRegionImage(region);
             if (region == 'parameters') await _loadParameterIcons();
           });
@@ -2012,6 +2034,11 @@ class NativeUiBridge extends ChangeNotifier {
     }
   }
 
+  Future<void> _finishParameterIconDeletion() async {
+    await photoEditor.resetDeletedParameterIcons();
+    await _templateEditor?.resetDeletedParameterIcons(persist: false);
+  }
+
   Future<void> _loadParameterIcons() async {
     if (photoEditor.directory == null) return;
     _parameterIcons = await photoEditor.parameterIconLibrary.list(
@@ -2073,6 +2100,12 @@ class NativeUiBridge extends ChangeNotifier {
       throw const FormatException('无效界面设置');
     }
     final result = {..._settings, ...patch};
+    if (photoEditor.directory != null &&
+        photoEditor.parameterIconLibrary.removed.contains(
+          result['defaultParameterIcon'],
+        )) {
+      result['defaultParameterIcon'] = builtinEmblems.first['asset'];
+    }
     if (patch.containsKey('glass') && !patch.containsKey('glassMode')) {
       result['glassMode'] = patch['glass'] == false ? 'off' : 'auto';
     }

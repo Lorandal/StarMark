@@ -122,12 +122,15 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
 
 @Composable
 internal fun DraftDeleteDialog(ids: List<String>, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    LibraryDeleteDialog(ids, busy, "草稿", "份草稿，原始照片将保留。", "draft", onDismiss, onConfirm)
+    LibraryDeleteDialog(ids, busy, "草稿", "份草稿，原始照片将保留。", "draft", onDismiss,
+        title = "确认删除草稿", onConfirm = onConfirm)
 }
 
 @Composable
 internal fun LibraryDeleteDialog(ids: List<String>, busy: Boolean, subject: String, summarySuffix: String,
-    tagPrefix: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    tagPrefix: String, onDismiss: () -> Unit,
+    title: String = "确认删除$subject？", summary: String = "将删除选中的 ${ids.size} $summarySuffix",
+    onConfirm: () -> Unit) {
     val openedAt = remember(ids) { System.nanoTime() }
     var remaining by remember(ids) { mutableIntStateOf(3) }
     LaunchedEffect(ids) {
@@ -136,7 +139,7 @@ internal fun LibraryDeleteDialog(ids: List<String>, busy: Boolean, subject: Stri
             remaining = draftDeleteRemainingSeconds((System.nanoTime() - openedAt) / 1_000_000L)
         }
     }
-    ChromeDialog(show = true, title = "确认删除$subject？", summary = "将删除选中的 ${ids.size} $summarySuffix", onDismissRequest = onDismiss) {
+    ChromeDialog(show = true, title = title, summary = summary, onDismissRequest = onDismiss) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton("取消", hapticClick(onClick = onDismiss), Modifier.weight(1f).testTag("$tagPrefix.delete.cancel"))
             TextButton(if (remaining > 0) "确认（$remaining）" else "确认", hapticClick(feedbackEnabled = remaining == 0 && !busy) { if (remaining == 0 && !busy) onConfirm() },

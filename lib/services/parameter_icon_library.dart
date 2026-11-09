@@ -17,6 +17,10 @@ class ParameterIconLibrary {
   final Directory base;
   File get _index => File('${base.path}/parameter-icons.json');
   Map<String, String>? _titles;
+  Set<String> _removed = {};
+  int removalRevision = 0;
+  Set<String> get removed => Set.unmodifiable(_removed);
+  Future<void> initialize() => _load();
   final _verified = <String>{};
   final _thumbnailJobs = <String, Future<String>>{};
   Future<void>? _loading;
@@ -31,6 +35,14 @@ class ParameterIconLibrary {
       try {
         final json = jsonDecode(await File(path).readAsString()) as Map;
         if (json['version'] != 1) continue;
+        _removed = {
+          for (final id in (json['removed'] as List? ?? const []))
+            if (id is String &&
+                RegionAssets.validId(id) &&
+                !builtinEmblems.any((e) => e['asset'] == id))
+              id,
+        };
+        removalRevision++;
         _titles = {
           for (final row in (json['icons'] as List).cast<Map>())
             if (row['asset'] is String &&
@@ -60,9 +72,10 @@ class ParameterIconLibrary {
     _verified.add(asset);
   }
 
-  Future<void> register(String asset, String title) {
+  Future<void> register(String asset, String title, {bool restore = false}) {
     final job = _tail.then((_) async {
       await _load();
+      if (_removed.contains(asset) && !restore) return;
       await ensureAsset(asset);
       if (builtinEmblems.any((e) => e['asset'] == asset) ||
           _titles!.containsKey(asset)) {
@@ -72,7 +85,18 @@ class ParameterIconLibrary {
       _titles![asset] = clean.isEmpty
           ? '自定义图标'
           : clean.substring(0, math.min(clean.length, 120));
-      await _save();
+      final wasRemoved = _removed.remove(asset);
+      if (wasRemoved) removalRevision++;
+      try {
+        await _save();
+      } catch (_) {
+        _titles!.remove(asset);
+        if (wasRemoved) {
+          _removed.add(asset);
+          removalRevision++;
+        }
+        rethrow;
+      }
     });
     _tail = job.catchError((Object _) {});
     return job;
@@ -81,31 +105,60 @@ class ParameterIconLibrary {
   Future<String> importBytes(Uint8List bytes, String title) async {
     final asset = await RegionAssets(base).importBytes(bytes);
     await _thumbnail(asset);
-    await register(asset, title);
+    await register(asset, title, restore: true);
     return asset;
+  }
+
+  Future<void> delete(String asset) {
+    final job = _tail.then((_) async {
+      await _load();
+      if (!RegionAssets.validId(asset) ||
+          builtinEmblems.any((e) => e['asset'] == asset) ||
+          !_titles!.containsKey(asset)) {
+        throw const FormatException('仅可删除已添加的自定义图标');
+      }
+      final title = _titles!.remove(asset)!;
+      _removed.add(asset);
+      try {
+        await _save();
+        removalRevision++;
+      } catch (_) {
+        _titles![asset] = title;
+        _removed.remove(asset);
+        rethrow;
+      }
+      // Originals are shared with signatures and package resources. Removing
+      // a gallery item must not destroy those unrelated uses.
+    });
+    _tail = job.catchError((Object _) {});
+    return job;
   }
 
   Future<void> _save() async {
     await base.create(recursive: true);
     final temp = File('${_index.path}.tmp'),
         backup = File('${_index.path}.bak');
-    await temp.writeAsString(
-      jsonEncode({
-        'version': 1,
-        'icons': [
-          for (final e in _titles!.entries) {'asset': e.key, 'title': e.value},
-        ],
-      }),
-      flush: true,
-    );
+    final data = jsonEncode({
+      'version': 1,
+      'removed': _removed.toList(),
+      'icons': [
+        for (final e in _titles!.entries) {'asset': e.key, 'title': e.value},
+      ],
+    });
+    await temp.writeAsString(data, flush: true);
+    final recovery = File('${backup.path}.tmp');
+    await recovery.writeAsString(data, flush: true);
     if (await _index.exists()) {
       if (await backup.exists()) await backup.delete();
       await _index.rename(backup.path);
     }
     try {
       await temp.rename(_index.path);
+      // A confirmed deletion must survive recovery from a corrupt primary.
+      // Keep the recovery catalog on the same committed deletion state.
+      await recovery.rename(backup.path);
     } catch (_) {
-      if (await backup.exists()) await backup.rename(_index.path);
+      if (await backup.exists()) await backup.copy(_index.path);
       rethrow;
     }
   }
@@ -188,6 +241,7 @@ class ParameterIconLibrary {
       }
     } catch (_) {}
     for (final asset in referenced) {
+      if (_removed.contains(asset)) continue;
       try {
         try {
           await ensureAsset(asset);
@@ -220,10 +274,12 @@ class ParameterIconLibrary {
       for (final e in _titles!.entries) {'asset': e.key, 'title': e.value},
     ]) {
       try {
+        if (_removed.contains(item['asset'])) continue;
         await ensureAsset(item['asset']!);
         rows.add({
           ...item,
           'id': item['asset'],
+          'deletable': !builtinEmblems.any((e) => e['asset'] == item['asset']),
           'image': await _thumbnail(item['asset']!),
         });
       } catch (_) {

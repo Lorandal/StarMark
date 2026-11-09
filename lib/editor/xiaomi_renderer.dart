@@ -699,8 +699,9 @@ class _Builder {
   final PhotoAsset photo;
   final ui.Image image;
   final XiaomiRenderResources resources;
-  late final Map<String, dynamic> options = _map(
-    document.toJson()['xiaomiOptions'],
+  late final Map<String, dynamic> options = effectiveMetadataOptions(
+    photo.metadata,
+    document.xiaomiOptions,
   );
   late final Map<String, dynamic> wmRes = _map(config['wmRes']);
   late final Map<String, dynamic>? background =

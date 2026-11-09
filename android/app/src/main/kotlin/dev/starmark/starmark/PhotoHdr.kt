@@ -310,7 +310,7 @@ internal object PhotoHdr {
 
     /**
      * A narrow PNG exclusion, not an HDR decoder. Only ordinary 8-bit PNG with implicit/explicit
-     * sRGB colour and known harmless chunks qualifies. Pixel data is seeked over, not decoded.
+     * sRGB colour or a verified SDR matrix/TRC ICC profile qualifies. Pixel data is seeked over, not decoded.
      * PNG Third Edition gives cICP precedence over sRGB and defines mDCV/cLLI HDR metadata:
      * https://www.w3.org/TR/png-3/#11cICP . Unknown ICC, high bit depth, HDR/unknown chunks, APNG,
      * compressed text, or trailing payload remain uncertain, even when a platform ignores them.
@@ -325,6 +325,8 @@ internal object PhotoHdr {
         var hasHeader = false
         var hasPixels = false
         var hasExif = false
+        var hasIcc = false
+        var hasSrgb = false
         while (file.filePointer <= file.length() - 12 && ++chunks <= 4096) {
             val size = file.readInt().toLong() and 0xffffffffL
             val typeBytes = ByteArray(4).also { file.readFully(it) }
@@ -350,7 +352,14 @@ internal object PhotoHdr {
                     if (dimension(0) !in 1..Int.MAX_VALUE.toLong() || dimension(4) !in 1..Int.MAX_VALUE.toLong()) return false
                     hasHeader = true
                 }
-                "sRGB" -> if (hasPixels || data.size != 1 || data[0].toInt() !in 0..3) return false
+                "sRGB" -> {
+                    if (hasPixels || hasIcc || hasSrgb || data.size != 1 || data[0].toInt() !in 0..3) return false
+                    hasSrgb = true
+                }
+                "iCCP" -> {
+                    if (hasPixels || hasIcc || hasSrgb || !SdrIccProfile.pngChunk(data)) return false
+                    hasIcc = true
+                }
                 "cICP" -> if (hasPixels || !data.contentEquals(byteArrayOf(1, 13, 0, 1))) return false
                 "gAMA" -> if (hasPixels || !data.contentEquals(byteArrayOf(0, 0, 0xb1.toByte(), 0x8f.toByte()))) return false
                 "cHRM" -> {
