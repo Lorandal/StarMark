@@ -255,6 +255,7 @@ class DraftStore {
   static final _uuid = RegExp(
     r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$',
   );
+  static final _percentEscape = RegExp(r'%[a-fA-F0-9]{2}');
   static const _photoFiles = {
     'source.img',
     'unmarked-original.img',
@@ -271,14 +272,24 @@ class DraftStore {
       if (value is String) {
         references.add(value.toLowerCase());
         if (value.contains('%')) {
+          String? decoded;
           try {
-            references.add(Uri.decodeComponent(value).toLowerCase());
+            decoded = Uri.decodeComponent(value);
+          } on ArgumentError {
+            // Ordinary template values (100%, 90%w) are not URI escapes.
+            // Dart reports malformed percent escapes as ArgumentError.
           } on FormatException {
-            if (value.contains('/') ||
-                value.contains('\\') ||
-                value.startsWith('file:')) {
-              uncertain = true;
-            }
+            // A well-formed escape can still contain invalid UTF-8 bytes.
+          }
+          if (decoded != null) {
+            references.add(decoded.toLowerCase());
+          } else if (value.contains('/') ||
+              value.contains('\\') ||
+              value.startsWith('file:') ||
+              _percentEscape.hasMatch(value)) {
+            // Preserve ambiguous path references; cleanup must not guess.
+            // Delimiters and UUIDs may themselves be escaped before a bad %.
+            uncertain = true;
           }
         }
       } else if (value is Map) {
