@@ -327,6 +327,7 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
 @Composable
 internal fun SettingsPage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues()) {
     val settings = state.obj("settings")
+    val appUpdate = state.obj("appUpdate")
     val xiaomiFilterSupported = remember { XiaomiFilterBlur.isAvailable() }
     val themes = listOf("system", "light", "dark")
     var askDetails by remember { mutableStateOf(false) }
@@ -371,11 +372,30 @@ internal fun SettingsPage(state: Map<*, *>, command: UiCommand, chromeInsets: Pa
                 }
             }
         }
+        item {
+            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
+                ArrowPreference("检查更新", summary = if (appUpdate.flag("checking")) "正在检查…" else null,
+                    enabled = !appUpdate.flag("checking") && !state.flag("busy"),
+                    modifier = Modifier.testTag("settings.checkUpdate"),
+                    onClick = hapticClick { command.send("settings.checkUpdate") })
+            }
+        }
     }
     if (askDetails) ChromeDialog(show = true, title = "是否查看开源代码许可和组件详情", onDismissRequest = { askDetails = false }) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton("是", hapticClick { showDetails = true; askDetails = false }, Modifier.weight(1f).testTag("settings.details.yes"))
             TextButton("否", hapticClick { showDetails = false; askDetails = false }, Modifier.weight(1f).testTag("settings.details.no"), colors = ButtonDefaults.textButtonColorsPrimary())
+        }
+    }
+    ChromeDialog(show = appUpdate.flag("available"), modifier = Modifier.testTag("settings.update.dialog"),
+        title = "发现新版本", summary = "检测到最新版本（${appUpdate.text("versionName")}），是否更新？",
+        onDismissRequest = { command.send("settings.dismissUpdate") }) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton("取消", hapticClick { command.send("settings.dismissUpdate") },
+                Modifier.weight(1f).testTag("settings.update.cancel"))
+            TextButton("确认", hapticClick(feedbackEnabled = !appUpdate.flag("opening")) { command.send("settings.openUpdate") },
+                Modifier.weight(1f).testTag("settings.update.confirm"), enabled = !appUpdate.flag("opening"),
+                colors = ButtonDefaults.textButtonColorsPrimary())
         }
     }
 }

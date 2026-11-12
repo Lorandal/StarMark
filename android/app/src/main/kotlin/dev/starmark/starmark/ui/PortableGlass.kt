@@ -36,7 +36,7 @@ internal fun portableGlassMaterial(input: HazeInput.Sources, radius: Dp, dark: B
             // Regular follows host uiMode; StarMark's explicit app theme can differ.
             // Override every theme-dependent Regular property after replaying the preset.
             specularIntensity(if (dark) .50f else .65f)
-            edgeShadow(Color.Black.copy(alpha = if (dark) .14f else .08f))
+            edgeShadow(Color.Black.copy(alpha = if (dark) .07f else .03f))
             ambientResponse(if (dark) .08f else .12f)
             contrast(PortableGlassRecipe.contrast(dark))
             whitePoint(PortableGlassRecipe.whitePoint(dark))

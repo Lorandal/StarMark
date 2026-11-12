@@ -24,6 +24,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -133,7 +134,17 @@ internal fun ChromeSurface(
         Color.White.copy(alpha = if (dark) .035f else .16f),
         Color.White.copy(alpha = if (dark) { if (portable) .26f else .095f } else .54f),
     )), shape) else Modifier
-    Surface(modifier.then(if (role == ChromeMaterialRole.HeaderButton) Modifier.graphicsLayer { alpha = strength } else Modifier), shape = shape, color = Color.Transparent, shadowElevation = shadowElevation) {
+    // Surface's default black ambient/spot shadows remain visible even with effects
+    // disabled. Keep the existing outline/elevation, but use a quieter shadow in
+    // each theme. Own this single shadow layer so Surface cannot add another one.
+    val ambientAlpha = if (effects.glass) { if (dark) .40f else .24f } else { if (dark) .24f else .12f }
+    val spotAlpha = if (effects.glass) { if (dark) .48f else .32f } else { if (dark) .30f else .18f }
+    val shell = modifier
+        .then(if (role == ChromeMaterialRole.HeaderButton) Modifier.graphicsLayer { alpha = strength } else Modifier)
+        .shadow(shadowElevation, shape, clip = false,
+            ambientColor = Color.Black.copy(alpha = ambientAlpha),
+            spotColor = Color.Black.copy(alpha = spotAlpha))
+    Surface(shell, shape = shape, color = Color.Transparent, shadowElevation = 0.dp) {
         Box(rim.then(if (portable) Modifier else material), propagateMinConstraints = true) {
             if (portable) Box(Modifier.matchParentSize()) { PortableGlassLayer(requireNotNull(backdrop), cornerRadius, dark, material) }
             content()

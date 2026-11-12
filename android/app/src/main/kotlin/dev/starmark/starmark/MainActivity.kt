@@ -42,6 +42,8 @@ import dev.starmark.starmark.ui.StarMarkShell
 import dev.starmark.starmark.ui.ChromePhotoRevision
 import dev.starmark.starmark.ui.LocalChromePhotoCapture
 import dev.starmark.starmark.ui.LocalChromePhotoRevision
+import dev.starmark.starmark.updates.installedAppUpdateInfo
+import dev.starmark.starmark.updates.openUpdateInBrowser
 
 @Suppress("DEPRECATION")
 internal fun configureEdgeToEdgeWindow(window: Window) {
@@ -197,6 +199,16 @@ class MainActivity : FlutterFragmentActivity() {
             val args = call.arguments as? Map<*,*> ?: emptyMap<Any,Any>()
             when(call.method) {
                 "directory" -> result.success(baseDir.absolutePath)
+                "app.updateInfo" -> background(result) { installedAppUpdateInfo(this) }
+                "app.openUpdate" -> {
+                    try {
+                        val url = args["url"] as? String ?: error("更新下载地址无效，请重新检查更新")
+                        openUpdateInBrowser(this, url)
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("update_browser", error.message ?: "无法打开系统浏览器，请稍后重试", null)
+                    }
+                }
                 "capabilities" -> result.success(mapOf("api" to android.os.Build.VERSION.SDK_INT,"imageBlur" to true,"manufacturer" to android.os.Build.MANUFACTURER))
                 "pickPhotos", "pickZip", "pickFont", "pickRegionImage" -> {
                     if(pendingPicker!=null){result.error("busy","选择器已打开",null);return@setMethodCallHandler}

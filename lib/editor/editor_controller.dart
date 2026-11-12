@@ -19,6 +19,7 @@ import '../services/parameter_icon_library.dart';
 import 'global_parameter_icon.dart';
 import 'region_replacements.dart';
 import '../services/photo_asset.dart';
+import '../services/draft_store.dart';
 import '../services/preset_models.dart';
 import '../services/watermark_style.dart';
 import '../services/watermark_package.dart';
@@ -201,13 +202,25 @@ class EditorController extends ChangeNotifier {
   int revision = 0;
   Timer? _saveTimer;
   final Set<String> _deletedDraftIds = {};
-  final Map<String, String> _draftFiles = {};
-  int _draftListToken = 0;
+  DraftStore? _draftStore;
+  final _activeDraftResources = <Map<String, dynamic>>{};
+  Iterable<Object?> Function()? liveDraftReferences;
+  DraftStore get _store => _draftStore ??= DraftStore(
+    directory!,
+    retainedReferences: () => [
+      asset.toJson(),
+      history.toJson(),
+      ..._activeDraftResources,
+      for (final style in userStyles) style.toJson(),
+      ...?liveDraftReferences?.call(),
+    ],
+  );
+  bool get sampleAvailable => _draftStore?.sampleAvailable ?? true;
+  bool get hasPhoto => !asset.sample || sampleAvailable;
   int _resourcesToken = 0;
   int _assetToken = 0;
   int _fontIntent = 0;
   bool _disposed = false;
-  Future<void> _writeTail = Future.value();
   final Map<String, Future<vg.PictureInfo?>> _pictureJobs = {};
   String _backgroundKey = '';
   bool _backgroundToned = false;
@@ -632,6 +645,8 @@ class EditorController extends ChangeNotifier {
       modelCatalog = await loadPresetModels();
       if (!testMode) {
         directory = Directory((await NativeBridge.call<String>('directory'))!);
+        // Establish first-install state before catalogs/preferences create files.
+        await loadDrafts();
         await parameterIconLibrary.initialize();
         await loadImportedFonts();
         stage('private-directory');
@@ -669,7 +684,6 @@ class EditorController extends ChangeNotifier {
             }
           }
         }
-        await loadDrafts();
         stage('drafts');
       }
       if (directory != null) {
@@ -1302,7 +1316,7 @@ class EditorController extends ChangeNotifier {
       );
     }
     _saveTimer?.cancel();
-    await _writeTail;
+    await _store.pendingWrites;
     history = EditHistory.fromJson(
       withoutParameterIcons(history.toJson(), removed),
     );
@@ -2147,6 +2161,7 @@ class EditorController extends ChangeNotifier {
 
   void scheduleSave() {
     if (!writesDrafts || testMode || directory == null) return;
+    if (asset.sample && !sampleAvailable) return;
     _deletedDraftIds.remove(asset.id);
     saveStatus = '保存中';
     _saveTimer?.cancel();
@@ -2154,12 +2169,6 @@ class EditorController extends ChangeNotifier {
       const Duration(milliseconds: 500),
       () => unawaited(saveDraft()),
     );
-  }
-
-  Future<void> _atomic(File file, String content) async {
-    final job = _writeTail.then((_) => _writeAtomic(file, content));
-    _writeTail = job.catchError((Object _) {});
-    return job;
   }
 
   Future<String> _nativeSource(PhotoAsset photo) async {
@@ -2174,23 +2183,6 @@ class EditorController extends ChangeNotifier {
       );
     }
     return file.path;
-  }
-
-  Future<void> _writeAtomic(File file, String content) async {
-    await file.parent.create(recursive: true);
-    final temp = File('${file.path}.tmp');
-    await temp.writeAsString(content, flush: true);
-    final backup = File('${file.path}.bak');
-    if (await file.exists()) {
-      if (await backup.exists()) await backup.delete();
-      await file.rename(backup.path);
-    }
-    try {
-      await temp.rename(file.path);
-    } catch (_) {
-      if (await backup.exists()) await backup.rename(file.path);
-      rethrow;
-    }
   }
 
   Future<dynamic> _readJsonRecovery(
@@ -2236,6 +2228,7 @@ class EditorController extends ChangeNotifier {
 
   Future<void> saveDraft({bool explicit = false}) async {
     if (!writesDrafts || directory == null || testMode) return;
+    if (asset.sample && !sampleAvailable) return;
     if (explicit) _deletedDraftIds.remove(asset.id);
     if (_deletedDraftIds.contains(asset.id)) return;
     final snapshot = {
@@ -2245,105 +2238,52 @@ class EditorController extends ChangeNotifier {
       'history': history.toJson(),
     };
     try {
-      await _atomic(
-        File('${directory!.path}/drafts/${asset.id}.json'),
-        jsonEncode(snapshot),
-      );
+      _acceptDrafts(await _store.save(snapshot, completesEditing: explicit));
       saveStatus = '已保存';
-      await loadDrafts();
     } catch (e) {
       saveStatus = '保存失败';
       message = '草稿保存失败：$e';
+      if (explicit) rethrow;
     }
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> loadDrafts() async {
     if (directory == null) return;
-    final token = ++_draftListToken;
-    final folder = Directory('${directory!.path}/drafts');
-    if (!await folder.exists()) {
-      if (token != _draftListToken) return;
-      drafts = [];
-      _draftFiles.clear();
-      notifyListeners();
-      return;
+    _acceptDrafts(await _store.load());
+    if (!_disposed) notifyListeners();
+  }
+
+  void _acceptDrafts(List<Map<String, dynamic>> value) {
+    drafts = value;
+    _deletedDraftIds.addAll(_store.removedIds);
+    _store.removedIds.clear();
+  }
+
+  /// Leaving a real-photo session completes its already-applied watermark;
+  /// import cancellation and background autosaves never call this transition.
+  Future<void> finishPhotoEditing() async {
+    if (!writesDrafts || directory == null || testMode || !hasPhoto) return;
+    if (asset.sample && !history.canUndo && !history.canRedo) return;
+    if (!_deletedDraftIds.contains(asset.id)) {
+      await saveDraft();
+      if (saveStatus != '已保存') throw StateError('草稿保存失败，请重试');
     }
-    final found = <Map<String, dynamic>>[];
-    final files = <String, String>{};
-    final paths = <String>{};
-    await for (final entry in folder.list()) {
-      if (entry is File && entry.path.endsWith('.json')) paths.add(entry.path);
-      if (entry is File && entry.path.endsWith('.json.bak')) {
-        paths.add(entry.path.substring(0, entry.path.length - 4));
-      }
-    }
-    for (final path in paths) {
-      try {
-        final data = await _readJsonRecovery(
-          File(path),
-          validate: (value) {
-            final draft = Map<String, dynamic>.from(value as Map);
-            PhotoAsset.fromJson(
-              Map<String, dynamic>.from(draft['photo'] as Map),
-            );
-            EditHistory.fromJson(
-              Map<String, dynamic>.from(draft['history'] as Map),
-            );
-          },
-        );
-        if (data != null) {
-          final draft = Map<String, dynamic>.from(data as Map);
-          final id = draft['id'];
-          if (id is! String ||
-              !RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$').hasMatch(id)) {
-            throw const FormatException('无效草稿 ID');
-          }
-          PhotoAsset.fromJson(Map<String, dynamic>.from(draft['photo'] as Map));
-          EditHistory.fromJson(
-            Map<String, dynamic>.from(draft['history'] as Map),
-          );
-          found.add(draft);
-          files[id] = path;
-        }
-      } catch (_) {
-        /* Preserve damaged drafts for recovery. */
-      }
-    }
-    found.sort(
-      (a, b) => (b['updated'] as String).compareTo(a['updated'] as String),
-    );
-    if (token != _draftListToken) return;
-    drafts = found;
-    _draftFiles
-      ..clear()
-      ..addAll(files);
-    notifyListeners();
+    _acceptDrafts(await _store.completeEditing());
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> deleteDrafts(Iterable<String> ids) async {
     if (directory == null) throw StateError('草稿存储不可用');
     final selected = ids.toSet();
     if (selected.isEmpty ||
-        selected.any((id) => !_draftFiles.containsKey(id))) {
+        selected.any((id) => !drafts.any((row) => row['id'] == id))) {
       throw const FormatException('草稿不存在或未选择');
     }
-    final paths = [for (final id in selected) _draftFiles[id]!];
     if (selected.contains(asset.id)) _saveTimer?.cancel();
     _deletedDraftIds.addAll(selected);
-    // Use the save queue so an earlier write cannot recreate a deleted record.
-    // Photos and watermark/font resources have separate lifetimes.
-    final job = _writeTail.then((_) async {
-      for (final path in paths) {
-        for (final suffix in ['', '.bak', '.tmp']) {
-          final file = File('$path$suffix');
-          if (await file.exists()) await file.delete();
-        }
-      }
-    });
-    _writeTail = job.catchError((Object _) {});
     try {
-      await job;
+      _acceptDrafts(await _store.delete(selected));
       if (selected.contains(asset.id)) saveStatus = '草稿已删除';
     } finally {
       await loadDrafts();
@@ -2352,14 +2292,19 @@ class EditorController extends ChangeNotifier {
 
   Future<void> restore(Map<String, dynamic> draft) async {
     _saveTimer?.cancel();
-    await saveDraft();
-    await setAsset(
-      PhotoAsset.fromJson(Map<String, dynamic>.from(draft['photo'] as Map)),
-      restored: EditHistory.fromJson(
-        Map<String, dynamic>.from(draft['history'] as Map),
-      ),
-      save: false,
-    );
+    _activeDraftResources.add(draft);
+    try {
+      await saveDraft();
+      await setAsset(
+        PhotoAsset.fromJson(Map<String, dynamic>.from(draft['photo'] as Map)),
+        restored: EditHistory.fromJson(
+          Map<String, dynamic>.from(draft['history'] as Map),
+        ),
+        save: false,
+      );
+    } finally {
+      _activeDraftResources.remove(draft);
+    }
   }
 
   final _retiredFactoryDefinitions = Expando<bool>();
@@ -2478,6 +2423,8 @@ class EditorController extends ChangeNotifier {
     staruwNeed(!d.staruwPreserved, 'E_CAPABILITY', '保留模式水印不能导出照片');
     final preserveMotion = !(staticOutput ?? staticPhotoExport);
     if (directory == null) throw StateError('应用存储不可用');
+    final heldResources = {'photo': a.toJson(), 'document': d.toJson()};
+    _activeDraftResources.add(heldResources);
     busy = true;
     exportHighResolution = needsTiledExport(
       a.width,
@@ -2771,6 +2718,9 @@ class EditorController extends ChangeNotifier {
         }))!,
       );
       message = '已保存 ${result['width']} × ${result['height']} 到相册';
+      if (writesDrafts && !testMode) {
+        _acceptDrafts(await _store.completeEditing());
+      }
       return result;
     } finally {
       scene?.dispose();
@@ -2787,6 +2737,7 @@ class EditorController extends ChangeNotifier {
           await photoBackground.delete();
         }
       } finally {
+        _activeDraftResources.remove(heldResources);
         busy = false;
         exportStage = null;
         exportHighResolution = false;

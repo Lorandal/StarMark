@@ -17,10 +17,16 @@ import '../services/builtin_emblems.dart';
 import '../services/region_assets.dart';
 import '../editor/global_parameter_icon.dart';
 import '../services/native_bridge.dart';
+import '../services/app_updates.dart';
 
 /// The native shell owns presentation; this bridge owns editor commands/state.
 class NativeUiBridge extends ChangeNotifier {
-  NativeUiBridge(this.photoEditor) {
+  NativeUiBridge(this.photoEditor, {AppUpdateService? updateService})
+    : _updateService = updateService ?? AppUpdateService() {
+    photoEditor.liveDraftReferences = () => [
+      for (final photo in _batch) photo.toJson(),
+      if (_templateEditor != null) _templateEditor!.history.toJson(),
+    ];
     _lastEditorMessage = editor.message;
     _message = editor.message ?? '';
     editor.addListener(_editorChanged);
@@ -28,6 +34,9 @@ class NativeUiBridge extends ChangeNotifier {
 
   static const channel = MethodChannel('dev.starmark/ui');
   final EditorController photoEditor;
+  final AppUpdateService _updateService;
+  bool _checkingUpdate = false, _openingUpdate = false;
+  AvailableAppUpdate? _availableUpdate;
   EditorController? _templateEditor;
   EditorController get editor => _templateEditor ?? photoEditor;
   StylePreset? _editingTemplate;
@@ -160,6 +169,12 @@ class NativeUiBridge extends ChangeNotifier {
           : 'home',
       'ready': !editor.loading && editor.renderAssets != null,
       'busy': busy,
+      'appUpdate': {
+        'checking': _checkingUpdate,
+        'opening': _openingUpdate,
+        'available': _availableUpdate != null,
+        'versionName': _availableUpdate?.versionName ?? '',
+      },
       'operation': {
         'active': _operationBusy && _operationTitle != null,
         'title': _operationTitle,
@@ -351,12 +366,7 @@ class NativeUiBridge extends ChangeNotifier {
         .firstOrNull;
     return {
       'draftId': useDraft ? draft['id'] : '',
-      'image':
-          useDraft ||
-              !editor.asset.sample ||
-              editor.drafts.any((d) => d['id'] == editor.asset.id)
-          ? photo['preview']
-          : '',
+      'image': useDraft || editor.hasPhoto ? photo['preview'] : '',
       'watermarkPreview': style?.image ?? '',
     };
   }
@@ -932,6 +942,62 @@ class NativeUiBridge extends ChangeNotifier {
       ? error.message
       : error.toString();
 
+  Future<void> _checkForUpdates() async {
+    if (_checkingUpdate || _openingUpdate) return;
+    if (_page != 'settings') throw const FormatException('请在设置页检查更新');
+    _checkingUpdate = true;
+    _availableUpdate = null;
+    publish();
+    try {
+      final raw = await NativeBridge.call<Map>('app.updateInfo');
+      if (_disposed) return;
+      if (raw == null) throw const FormatException('无法读取当前安装版本');
+      final update = await _updateService.check(
+        InstalledAppVersion.fromNative(raw),
+      );
+      if (_disposed || _page != 'settings') return;
+      _availableUpdate = update;
+      if (update == null) {
+        _message = '已是最新版本';
+        _messageId++;
+      }
+    } on UpdateCheckException catch (error) {
+      if (!_disposed && _page == 'settings') _failure(error.userMessage);
+    } catch (_) {
+      if (!_disposed && _page == 'settings') _failure('检查更新失败，请稍后重试');
+    } finally {
+      if (!_disposed) {
+        _checkingUpdate = false;
+        publish();
+      }
+    }
+  }
+
+  Future<void> _openUpdate() async {
+    if (_openingUpdate) return;
+    final update = _availableUpdate;
+    if (_page != 'settings' || update == null) {
+      throw const FormatException('请先检查更新');
+    }
+    _openingUpdate = true;
+    publish();
+    try {
+      // The command carries no URL: only the checked, currently offered asset
+      // can reach the browser after the user confirms this dialog.
+      await NativeBridge.call<void>('app.openUpdate', {
+        'url': update.downloadUrl.toString(),
+      });
+      if (!_disposed && identical(_availableUpdate, update)) {
+        _availableUpdate = null;
+      }
+    } finally {
+      if (!_disposed) {
+        _openingUpdate = false;
+        publish();
+      }
+    }
+  }
+
   Future<void> _photoImport(Future<void> Function() action) =>
       _exclusive(() async {
         _importPending = true;
@@ -1174,6 +1240,16 @@ class NativeUiBridge extends ChangeNotifier {
             _pickerReturnPage = previous as String;
           }
           cancelInteraction();
+          if (_page == 'editor' &&
+              !['editor', 'watermarks', 'styles'].contains(page)) {
+            await editor.finishPhotoEditing();
+          }
+          if (page == 'editor' && !editor.hasPhoto) {
+            _message = '请选择照片';
+            _messageId++;
+            _page = 'home';
+            break;
+          }
           _page = page as String;
           if (_page == 'experiments') {
             await _exclusive(_loadParameterIcons, title: '正在读取图标…');
@@ -1196,6 +1272,7 @@ class NativeUiBridge extends ChangeNotifier {
             break;
           }
           cancelInteraction();
+          if (_page == 'editor') await editor.finishPhotoEditing();
           _page = _page == 'watermarks'
               ? _pickerReturnPage
               : ['components', 'licenses', 'experiments'].contains(_page)
@@ -1206,7 +1283,11 @@ class NativeUiBridge extends ChangeNotifier {
           await _photoImport(() async {
             final photos = await editor.pick();
             if (photos.isEmpty) return;
-            await editor.saveDraft();
+            if (_page == 'editor') {
+              await editor.finishPhotoEditing();
+            } else {
+              await editor.saveDraft();
+            }
             await editor.setAsset(photos.first);
             _page = 'editor';
           });
@@ -1280,7 +1361,15 @@ class NativeUiBridge extends ChangeNotifier {
               : 'editor';
           cancelInteraction();
           await _exclusive(() => editor.applyStyle(style), title: '正在准备水印…');
-          if (command['stayOnPage'] != true) _page = destination;
+          if (command['stayOnPage'] != true) {
+            _page = destination == 'editor' && !editor.hasPhoto
+                ? 'home'
+                : destination;
+            if (_page == 'home' && !editor.hasPhoto) {
+              _message = '请选择照片';
+              _messageId++;
+            }
+          }
         case 'watermark.selection.begin':
         case 'watermark.selection.toggle':
           _requireWatermarkLibrary();
@@ -1527,6 +1616,12 @@ class NativeUiBridge extends ChangeNotifier {
           if (_batchRunning) _cancelled = true;
         case 'settings.update':
           await _updateSettings(_map(command['patch']));
+        case 'settings.checkUpdate':
+          await _checkForUpdates();
+        case 'settings.dismissUpdate':
+          _availableUpdate = null;
+        case 'settings.openUpdate':
+          await _openUpdate();
         case 'material.changed':
           await editor.invalidateNativeMaterial();
         case 'message.clear':
@@ -1536,6 +1631,7 @@ class NativeUiBridge extends ChangeNotifier {
         default:
           throw const FormatException('未知操作');
       }
+      if (_page != 'settings') _availableUpdate = null;
       publish();
       return {'ok': true};
     } catch (error) {
@@ -2163,6 +2259,7 @@ class NativeUiBridge extends ChangeNotifier {
     _cancelled = _batchRunning;
     editor.removeListener(_editorChanged);
     _templateEditor?.dispose();
+    photoEditor.liveDraftReferences = null;
     if (_attached) channel.setMethodCallHandler(null);
     super.dispose();
   }
