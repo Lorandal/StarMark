@@ -9,8 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -39,18 +39,20 @@ private val LocalChromeOverlay = staticCompositionLocalOf<ChromeOverlayState?> {
 internal fun ChromeOverlayHost(content: @Composable () -> Unit) {
     val host = remember { ChromeOverlayState() }
     val focusManager = LocalFocusManager.current
-    val pageFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     val effects = LocalStarMarkEffects.current
     // Never replay native blur Views into a captured scene: that shifts their sampling.
     val record = host.entry != null && effects.glass && !effects.systemGlass && isRuntimeShaderSupported()
     val backdrop = rememberModalBackdrop(record)
     LaunchedEffect(host.entry?.owner) {
-        if (host.entry != null) focusManager.clearFocus(force = true)
-        else pageFocus.requestFocus()
+        if (host.entry != null) {
+            focusManager.clearFocus(force = true)
+            keyboard?.hide()
+        }
     }
     CompositionLocalProvider(LocalChromeOverlay provides host) {
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().focusRequester(pageFocus).focusRestorer().focusGroup()
+            Box(Modifier.fillMaxSize().focusGroup()
                 .then(if (record) Modifier.layerBackdrop(backdrop) else Modifier).then(if (host.entry != null)
                 Modifier.focusProperties { canFocus = false }.clearAndSetSemantics {}
                 else Modifier)) {
@@ -67,7 +69,9 @@ internal fun ChromeOverlayHost(content: @Composable () -> Unit) {
                     Box(Modifier.fillMaxSize().scrollBoundaryHaptics().focusProperties {
                         canFocus = active
                         if (active) onExit = { cancelFocusChange() }
-                    }.focusRequester(focus).focusRestorer().focusGroup().focusable()
+                    // Focus the non-editable modal container, not its first/last input.
+                    // Its children still participate in keyboard navigation and the trap.
+                    }.focusRequester(focus).focusable()
                         .then(if (record && !active) Modifier.layerBackdrop(captured) else Modifier)
                         .then(if (active) Modifier else Modifier.clearAndSetSemantics {})) {
                         CompositionLocalProvider(LocalChromeBackdrop provides source, LocalChromeOverlayActive provides active) {

@@ -49,6 +49,7 @@ private object BannerGlassEdge {
         uniform float radius;
         uniform float band;
         uniform float displacement;
+        uniform float highlightStrength;
         uniform float4 corner[33];
         half4 main(float2 p) {
             float2 q = min(p, bounds - p);
@@ -81,7 +82,7 @@ private object BannerGlassEdge {
             half4 c = content.eval(sampleAt);
             float light = 0.42 + 0.58 * abs(dot(n, normalize(float2(0.6, 0.8))));
             float peak = exp(-pow((t - 0.16) / 0.15, 2.0));
-            float highlight = 0.32 * light * peak * smoothstep(0.0, 0.08, t);
+            float highlight = highlightStrength * light * peak * smoothstep(0.0, 0.08, t);
             c.rgb = mix(c.rgb, half3(c.a), half(highlight));
             return c;
         }
@@ -90,13 +91,14 @@ private object BannerGlassEdge {
 
 /** The source contains only the photo and footer; text/buttons are never refracted.
  * No blur/downscale pass here: keep centre pixels exact and the thin edge full-resolution. */
-internal fun Modifier.bannerGlassEdge(backdrop: Backdrop): Modifier = drawBackdrop(
+internal fun Modifier.bannerGlassEdge(backdrop: Backdrop, frosted: Boolean = false): Modifier = drawBackdrop(
     backdrop = backdrop, shape = { RectangleShape }, effects = {
         runtimeShaderEffect("starmark.banner.innerGlass", BannerGlassEdge.Shader, "content") {
             setFloatUniform("bounds", size.width, size.height)
             setFloatUniform("radius", 22.dp.toPx())
             setFloatUniform("band", 6.dp.toPx())
             setFloatUniform("displacement", 3.6.dp.toPx())
+            setFloatUniform("highlightStrength", if (frosted) .08f else .32f)
             setFloatUniform("corner", BannerGlassEdge.corner)
         }
     },
@@ -104,7 +106,8 @@ internal fun Modifier.bannerGlassEdge(backdrop: Backdrop): Modifier = drawBackdr
 
 /** Draw outside the content clip, on the identical G2 path. Only the optical
  * coverage extends by half a dp; layout, source clip and touch bounds stay put. */
-internal fun Modifier.bannerGlassBloom(): Modifier = drawWithCache {
+internal fun Modifier.bannerGlassBloom(frosted: Boolean = false, dark: Boolean = false): Modifier =
+    if (frosted) frostedEdge(MiuixCornerShape(22.dp), dark) else drawWithCache {
     val outline = MiuixCornerShape(22.dp).createOutline(size, layoutDirection, this)
     val sheen = Brush.linearGradient(listOf(
         Color.White.copy(alpha = .52f), Color.White.copy(alpha = .16f),

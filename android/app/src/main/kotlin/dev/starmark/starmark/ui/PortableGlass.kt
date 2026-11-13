@@ -31,13 +31,14 @@ internal fun portableInput(state: HazeState) = HazeInput.Sources(state, retentio
 
 @Composable
 internal fun portableGlassMaterial(input: HazeInput.Sources, radius: Dp, dark: Boolean): Modifier {
-    val style = remember(radius, dark) {
+    val frosted = LocalStarMarkEffects.current.mode == GlassMode.Frosted
+    val style = remember(radius, dark, frosted) {
         GlassStyle.regular.then {
             // Regular follows host uiMode; StarMark's explicit app theme can differ.
             // Override every theme-dependent Regular property after replaying the preset.
-            specularIntensity(if (dark) .50f else .65f)
-            edgeShadow(Color.Black.copy(alpha = if (dark) .07f else .03f))
-            ambientResponse(if (dark) .08f else .12f)
+            specularIntensity(if (frosted) { if (dark) .18f else .22f } else if (dark) .50f else .65f)
+            edgeShadow(Color.Black.copy(alpha = if (frosted) { if (dark) .035f else .018f } else if (dark) .07f else .03f))
+            ambientResponse(if (frosted) { if (dark) .03f else .04f } else if (dark) .08f else .12f)
             contrast(PortableGlassRecipe.contrast(dark))
             whitePoint(PortableGlassRecipe.whitePoint(dark))
             chromaMultiplier(PortableGlassRecipe.chroma)

@@ -179,10 +179,11 @@ private fun HomeBannerCard(index: Int, background: String, thumbnail: String, fa
     val effects = LocalStarMarkEffects.current
     val backdrop = rememberLayerBackdrop()
     val glass = effects.glass && isRuntimeShaderSupported()
+    val frosted = effects.mode == GlassMode.Frosted
     val shape = MiuixCornerShape(22.dp)
     val footer = if (MiuixTheme.colorScheme.background.luminance() < .5f) MiuixTheme.colorScheme.background else Color.White
     val surface = rememberLayerBackdrop()
-    Box(Modifier.fillMaxSize().then(if (glass) Modifier.bannerGlassBloom() else Modifier).clip(shape)) {
+    Box(Modifier.fillMaxSize().then(if (glass) Modifier.bannerGlassBloom(frosted, MiuixTheme.colorScheme.background.luminance() < .5f) else Modifier).clip(shape)) {
         Box(Modifier.fillMaxSize().then(if (glass) Modifier.layerBackdrop(surface) else Modifier)) {
             PhotoThumbnail(background, Modifier.fillMaxSize().then(if (glass) Modifier.layerBackdrop(backdrop) else Modifier), cornerRadius = 0.dp, decodeEdge = decodeEdge)
             Box(Modifier.fillMaxWidth().height(96.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .24f), Color.Transparent))))
@@ -190,7 +191,7 @@ private fun HomeBannerCard(index: Int, background: String, thumbnail: String, fa
                 .then(if (glass) Modifier.progressiveTextureBlur(backdrop = backdrop, shape = RectangleShape, blurRadius = 32f, gradient = ProgressiveBlur.Bottom.copy(startFraction = 0f, curve = 1f)) else Modifier)
                 .background(Brush.verticalGradient(listOf(footer.copy(alpha = 0f), footer.copy(alpha = .35f), footer.copy(alpha = .92f)))))
         }
-        if (glass) Box(Modifier.matchParentSize().bannerGlassEdge(surface))
+        if (glass) Box(Modifier.matchParentSize().bannerGlassEdge(surface, frosted))
         Text(bannerTitles[index], Modifier.align(Alignment.TopStart).padding(20.dp), fontFamily = family, fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1)
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             HomeBannerPreview(thumbnail, bannerWidthDp, Modifier.width(72.dp).height(57.6.dp).testTag("home.preview.$index"))
@@ -240,7 +241,7 @@ private fun HomeBannerActionVisual(index: Int, interaction: MutableInteractionSo
     // refraction/highlight, tint, and the common card-local placement of all pixels.
     CompositionLocalProvider(LocalStarMarkEffects provides effects.copy(systemGlassSupported = false)) {
         ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled).testTag("home.actionVisual.$index"), cornerRadius = 28.dp, role = ChromeMaterialRole.HeaderButton) {
-            Box(Modifier.fillMaxSize().then(if (effects.glass) Modifier.glassActionPaint(Color(0xFF3482FF), 28.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled) else Modifier.clip(CircleShape).background(Color(0xFF3482FF).copy(alpha = if (effects.glass) .64f else 1f))), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().then(if (effects.glass) Modifier.glassActionPaint(Color(0xFF3482FF), 28.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled, frosted = effects.mode == GlassMode.Frosted) else Modifier.clip(CircleShape).background(Color(0xFF3482FF).copy(alpha = if (effects.glass) .64f else 1f))), contentAlignment = Alignment.Center) {
                 Icon(when (index) { 0 -> MiuixIcons.Edit; 1 -> MiuixIcons.Add; else -> MiuixIcons.Image }, null,
                     Modifier.fillMaxSize(24f / 56f), tint = Color.White)
             }

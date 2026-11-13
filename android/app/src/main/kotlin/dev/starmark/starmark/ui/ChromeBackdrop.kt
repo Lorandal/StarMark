@@ -131,8 +131,10 @@ internal fun ChromeSurface(
             BlendColorEntry(Color(it.argb), BlurBlendMode(it.mode))
         }),
     ) else Modifier.background(Color(if (navigation) ChromeMaterialRecipe.navigationSolid(dark) else ChromeMaterialRecipe.solid(dark)), shape)
-    // The portable renderer samples the live page. Only the capsule's narrow rim catches light.
-    val rim = if ((navigation || portable) && glass) Modifier.border(1.dp, Brush.verticalGradient(listOf(
+    // Every frosted role shares one subdued edge, including the Miuix fallback.
+    // Haze already provides optical reflection; an opaque white border doubles it.
+    val rim = if (glass && effects.mode == GlassMode.Frosted) Modifier.frostedEdge(shape, dark)
+    else if ((navigation || portable) && glass) Modifier.border(1.dp, Brush.verticalGradient(listOf(
         Color.White.copy(alpha = if (dark) { if (portable) .38f else .14f } else .80f),
         Color.White.copy(alpha = if (dark) .035f else .16f),
         Color.White.copy(alpha = if (dark) { if (portable) .26f else .095f } else .54f),

@@ -139,7 +139,7 @@ internal fun ParameterIconChoiceCard(
                             ChromeSurface(Modifier.fillMaxSize(), cornerRadius = 24.dp) {
                                 Box(Modifier.fillMaxSize().then(
                                     if (LocalStarMarkEffects.current.glass)
-                                        Modifier.glassActionPaint(primary.copy(alpha = .22f), 24.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled)
+                                        Modifier.glassActionPaint(primary.copy(alpha = .22f), 24.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled, frosted = LocalStarMarkEffects.current.mode == GlassMode.Frosted)
                                     else Modifier.clip(CircleShape).background(primary.copy(alpha = .22f))), contentAlignment = Alignment.Center) {
                                     Icon(MiuixIcons.Add, null, Modifier.size(26.dp), tint = primary)
                                 }

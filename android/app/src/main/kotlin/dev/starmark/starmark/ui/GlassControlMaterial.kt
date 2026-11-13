@@ -51,44 +51,49 @@ internal fun glassTabColors() = top.yukonga.miuix.kmp.basic.TabRowDefaults.tabRo
 
 /** Reuses the parent's already blurred scene. Child controls never register
  * another backdrop or native blur View, preventing recursive/double sampling. */
-internal fun Modifier.glassActionPaint(color: Color, radius: Dp, dark: Boolean, pressed: Boolean = false, enabled: Boolean = true, shape: Shape = MiuixCornerShape(radius)): Modifier {
+internal fun Modifier.glassActionPaint(color: Color, radius: Dp, dark: Boolean, pressed: Boolean = false, enabled: Boolean = true, shape: Shape = MiuixCornerShape(radius), frosted: Boolean = false): Modifier {
     val chroma = maxOf(color.red, color.green, color.blue) - minOf(color.red, color.green, color.blue)
     val colored = chroma > .18f
-    val edge = when {
-        !colored -> Color.White
-        color.blue > color.red -> Color(0xFF3FDDFF)
-        else -> Color(0xFFFFB199)
-    }
+    // A reflection keeps the action's hue; cyan/peach outlines discolored other accents.
+    val edge = if (colored) lerp(color.copy(alpha = 1f), Color.White, .48f) else Color.White
     return clip(shape).drawWithCache {
         val outline = shape.createOutline(size, layoutDirection, this)
-        // Give light neutral actions a gray body, separate from the milky parent.
-        // Keep the background visible and leave the existing dark material intact.
         val neutralBody = if (dark) color else Color(0xFF858B94)
         val fill = if (colored) Brush.verticalGradient(listOf(
-            color.copy(alpha = color.alpha * if (pressed) .88f else .78f),
-            color.copy(alpha = color.alpha * if (pressed) .82f else .69f),
+            color.copy(alpha = color.alpha * if (!enabled) .72f else if (pressed) .99f else .97f),
+            color.copy(alpha = color.alpha * if (!enabled) .64f else if (pressed) .97f else .93f),
         )) else Brush.verticalGradient(listOf(
-            neutralBody.copy(alpha = if (dark) .40f else .36f),
-            neutralBody.copy(alpha = if (dark) .29f else .30f),
+            neutralBody.copy(alpha = (if (pressed) .46f else .40f) * if (enabled) 1f else .6f),
+            neutralBody.copy(alpha = (if (pressed) .40f else .34f) * if (enabled) 1f else .6f),
         ))
         val face = Brush.verticalGradient(listOf(
-            Color.White.copy(alpha = if (colored) .045f else if (dark) .035f else .10f),
-            Color.Transparent,
-            Color.White.copy(alpha = if (colored) .025f else if (dark) .06f else .04f),
+            Color.White.copy(alpha = if (colored) .025f else if (dark) .035f else .06f),
+            Color.White.copy(alpha = 0f),
+            Color.White.copy(alpha = if (colored) .012f else if (dark) .04f else .02f),
         ))
         val rim = Brush.linearGradient(listOf(
-            edge.copy(alpha = if (colored) .95f else if (dark) .47f else .95f),
-            edge.copy(alpha = if (colored) .30f else if (dark) .08f else .22f),
-            edge.copy(alpha = if (colored) .70f else if (dark) .28f else .70f),
+            edge.copy(alpha = .85f),
+            edge.copy(alpha = .22f),
+            edge.copy(alpha = .55f),
         ))
+        // Subpixel-spaced coverage approximates a continuous Gaussian falloff along
+        // the actual G2 outline, without the two hard inner bands of stacked borders.
+        var coverage = 0f
+        val feather = List(20) { index ->
+            val distance = 3f * (20 - index) / 20f
+            val next = (if (colored) .48f else .58f) *
+                kotlin.math.exp(-.5f * (distance / .8f) * (distance / .8f))
+            val alpha = (next - coverage) / (1f - coverage)
+            coverage = next
+            Stroke((distance * 2f).dp.toPx()) to alpha
+        }
         onDrawWithContent {
             drawOutline(outline, fill)
             drawOutline(outline, face)
-            // Broad, low-opacity inner reflection, then a narrow luminous rim.
-            // Both strokes are clipped to the unchanged G2/circular boundary.
-            val rimStrength = if (enabled) 1f else .22f
-            drawOutline(outline, rim, alpha = (if (pressed) .28f else .17f) * rimStrength, style = Stroke(5.dp.toPx()))
-            drawOutline(outline, rim, alpha = rimStrength, style = Stroke(1.6.dp.toPx()))
+            val rimStrength = (if (!enabled) .22f else if (pressed) .8f else 1f) * if (frosted) .25f else 1f
+            feather.forEach { (stroke, alpha) ->
+                drawOutline(outline, rim, alpha = alpha * rimStrength, style = stroke)
+            }
             drawContent()
         }
     }
@@ -123,7 +128,7 @@ internal fun Button(
     CompositionLocalProvider(LocalContentColor provides foreground) {
         Box(modifier.semantics { role = Role.Button }
             .glassActionPaint(fill, cornerRadius, dark, pressed && enabled, enabled = enabled,
-                shape = rememberSquircleSurfaceShape(cornerRadius))
+                shape = rememberSquircleSurfaceShape(cornerRadius), frosted = LocalStarMarkEffects.current.mode == GlassMode.Frosted)
             .clickable(interaction, indication, enabled, role = Role.Button, onClick = onClick),
             propagateMinConstraints = true) {
             Row(Modifier.defaultMinSize(minWidth, minHeight).padding(insideMargin),
