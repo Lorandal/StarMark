@@ -2,12 +2,12 @@
 
 StarMark 是一款以本地处理为主的 Android 照片水印工具，支持拍摄参数、预设型号、文字与图片签名，以及自定义水印模板。
 
-当前版本：**Beta.0.9.0.53_5084C28**。最低支持 Android 13。正式版尚未发布。
+当前版本：**Beta.0.9.0.54_D2C1EC5**。最低支持 Android 13。正式版尚未发布。
 
 ## 下载与安装
 
-- [GitHub 下载](https://github.com/Lorandal/StarMark/releases/tag/Beta.0.9.0.53_5084C28)
-- [GitLab 下载](https://gitlab.com/Lorandal/StarMark/-/releases/Beta.0.9.0.53_5084C28)
+- [GitHub 下载](https://github.com/Lorandal/StarMark/releases/tag/Beta.0.9.0.54_D2C1EC5)
+- [GitLab 下载](https://gitlab.com/Lorandal/StarMark/-/releases/Beta.0.9.0.54_D2C1EC5)
 
 大多数手机选择 `arm64-v8a.apk`，其他设备按架构选择。下载后可使用同名 `.sha256` 文件或 `SHA256SUMS.txt` 核对文件完整性。
 

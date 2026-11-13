@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -80,7 +81,7 @@ internal fun ParameterIconChoiceCard(
         }
     }
     val primary = MiuixTheme.colorScheme.primary
-    Card(Modifier.fillMaxWidth().testTag("$tag.card"), cornerRadius = 20.dp) {
+    Card(Modifier.fillMaxWidth().testTag("$tag.card"), cornerRadius = 20.dp, colors = glassCardColors()) {
         LazyRow(Modifier.fillMaxWidth().testTag("$tag.gallery"), state = scroll,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -136,7 +137,10 @@ internal fun ParameterIconChoiceCard(
                             .background(MiuixTheme.colorScheme.surface, CircleShape))
                         CompositionLocalProvider(LocalChromeBackdrop provides backdrop) {
                             ChromeSurface(Modifier.fillMaxSize(), cornerRadius = 24.dp) {
-                                Box(Modifier.fillMaxSize().clip(CircleShape).background(primary.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.fillMaxSize().then(
+                                    if (LocalStarMarkEffects.current.glass)
+                                        Modifier.glassActionPaint(primary.copy(alpha = .22f), 24.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled)
+                                    else Modifier.clip(CircleShape).background(primary.copy(alpha = .22f))), contentAlignment = Alignment.Center) {
                                     Icon(MiuixIcons.Add, null, Modifier.size(26.dp), tint = primary)
                                 }
                             }

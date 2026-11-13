@@ -192,7 +192,7 @@ internal fun StylesPage(state: Map<*, *>, command: UiCommand) {
 internal fun StyleCard(style: Map<*, *>, busy: Boolean, command: UiCommand, afterApply: () -> Unit = {}) {
     val id = style.text("id")
     val selected = style.flag("selected")
-    Card(Modifier.fillMaxWidth().testTag("style.$id"), insideMargin = PaddingValues(12.dp), onClick = hapticClick(feedbackEnabled = !busy) { if (!busy) { command.send("style.apply", "id" to id); afterApply() } }) {
+    Card(Modifier.fillMaxWidth().testTag("style.$id"), colors = glassCardColors(), insideMargin = PaddingValues(12.dp), onClick = hapticClick(feedbackEnabled = !busy) { if (!busy) { command.send("style.apply", "id" to id); afterApply() } }) {
         PhotoThumbnail(style.text("image"), Modifier.fillMaxWidth().height(146.dp), style.text("title"))
         Row(Modifier.fillMaxWidth().padding(start = 5.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

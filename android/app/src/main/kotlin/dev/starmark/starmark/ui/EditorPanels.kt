@@ -92,7 +92,7 @@ private fun StylesPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit)
     var search by rememberSaveable { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChromeSearchField(search, { search = it }, "搜索样式", "editor.styles.search")
-        TabRow(listOf("全部", "原厂", "叠加", "边框", "自定义"), filter, hapticSelection(filter) { filter = it }, Modifier.testTag("editor.styles.filter"))
+        TabRow(listOf("全部", "原厂", "叠加", "边框", "自定义"), filter, hapticSelection(filter) { filter = it }, Modifier.testTag("editor.styles.filter"), colors = glassTabColors())
         val rows = state.rows("styles").filter { row ->
             row.text("title").contains(search, true) && when (filter) {
                 1 -> row.flag("native")
@@ -222,7 +222,8 @@ internal fun ContentPanel(state: Map<*, *>, command: UiCommand, open: (String) -
                 },
             )
         }
-        if (editsText) MainButton("应用内容", "content.apply", enabled, Modifier.heightIn(min = EditorSettingsDefaults.TouchTarget)) {
+        if (editsText) MainButton("应用内容", "content.apply", enabled,
+            Modifier.heightIn(min = EditorSettingsDefaults.TouchTarget), glassMaterial = true) {
             val patch = mutableMapOf<String, Any?>()
             if (editsCaption) patch["caption"] = caption
             if (editsModel) patch["modelOverride"] = model
@@ -300,13 +301,13 @@ private fun ParameterFieldGrid(content: @Composable (Modifier) -> Unit) {
 @Composable
 internal fun PanelTextField(
     value: String, onValueChange: (String) -> Unit, title: String, tag: String, enabled: Boolean,
-    modifier: Modifier = Modifier, placeholder: String = "", compact: Boolean = false,
+    modifier: Modifier = Modifier, placeholder: String = "", compact: Boolean = false, halfWidth: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
     val colors = MiuixTheme.colorScheme
     val textColor = if (enabled) colors.onSurface else colors.disabledOnSecondaryVariant
     val shape = MiuixCornerShape(10.dp)
-    val fieldSurface = Modifier.background(colors.surfaceContainerHigh, shape)
+    val fieldSurface = Modifier.background(glassNestedFill(colors.surfaceContainerHigh), shape)
         .border(1.dp, if (focused) colors.primary else Color.Transparent, shape)
     val alignment = if (compact) TextAlign.Start else TextAlign.End
     val style = if (compact) MiuixTheme.textStyles.body1 else MiuixTheme.textStyles.body2
@@ -341,10 +342,13 @@ internal fun PanelTextField(
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(title, style = MiuixTheme.textStyles.headline1, fontWeight = FontWeight.Medium, color = textColor)
-                    Box(
-                        Modifier.weight(1f).heightIn(min = 36.dp).then(fieldSurface).padding(horizontal = 10.dp, vertical = 4.dp),
-                        contentAlignment = Alignment.CenterEnd,
-                    ) { entry() }
+                    HalfWidthTextInput(Modifier.weight(1f), enabled = halfWidth) {
+                        Box(
+                            Modifier.fillMaxWidth().heightIn(min = 36.dp).testTag("$tag.input")
+                                .then(fieldSurface).padding(horizontal = 10.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.CenterEnd,
+                        ) { entry() }
+                    }
                 }
             }
         },
@@ -357,7 +361,7 @@ private fun ModelPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit) 
     var query by rememberSaveable { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChromeSearchField(query, { query = it }, "搜索型号", "model.search", enabled = state.editable())
-        Card(Modifier.fillMaxWidth(), cornerRadius = if (state.obj("template").flag("active")) 20.dp else 24.dp) {
+        Card(Modifier.fillMaxWidth(), cornerRadius = if (state.obj("template").flag("active")) 20.dp else 24.dp, colors = glassCardColors()) {
             RadioButtonPreference("按照片自动匹配", current.isEmpty(), { command.send("model.choose", "id" to ""); close() }, enabled = state.editable(), modifier = Modifier.testTag("model.auto"))
             state.rows("models").filter { it.text("title").contains(query, true) }.forEach { row ->
                 RadioButtonPreference(row.text("title"), current == row.text("id"), { command.send("model.choose", "id" to row.text("id")); close() }, enabled = state.editable(), modifier = Modifier.testTag("model.${row.text("id")}"))
@@ -460,7 +464,7 @@ private fun WatermarkSizePresets(scale: Float, enabled: Boolean, onSelected: (Wa
                 modifier = Modifier.weight(1f).heightIn(min = EditorSettingsDefaults.TouchTarget).testTag("position.scale.${preset.name.lowercase()}")
                     .semantics { this.selected = active },
                 shape = MiuixCornerShape(12.dp),
-                color = if (active) MiuixTheme.colorScheme.primary.copy(alpha = .15f) else MiuixTheme.colorScheme.surfaceContainerHigh,
+                color = if (active) MiuixTheme.colorScheme.primary.copy(alpha = .15f) else glassNestedFill(MiuixTheme.colorScheme.surfaceContainerHigh),
                 contentColor = if (active) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -538,7 +542,7 @@ private fun NativeAlignmentControls(state: Map<*, *>, command: UiCommand) {
                                 command.patch("切换原厂布局", "xiaomiOptions" to mapOf("layoutGroup" to choice.destination.group, "layout" to choice.destination.name))
                             }, contentAlignment = Alignment.Center,
                     ) {
-                        Box(Modifier.size(52.dp, 42.dp).background(if (active) MiuixTheme.colorScheme.primary.copy(alpha = .30f) else MiuixTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(52.dp, 42.dp).background(if (active) MiuixTheme.colorScheme.primary.copy(alpha = .30f) else glassNestedFill(MiuixTheme.colorScheme.surfaceContainerHigh)), contentAlignment = Alignment.Center) {
                             Icon(icon, null, Modifier.size(20.dp), tint = if (active) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary)
                         }
                     }
@@ -558,7 +562,7 @@ private fun AlignmentSegments(axis: String, labels: List<String>, selectedIndex:
                 onClick = hapticClick(HapticFeedbackType.SegmentTick, feedbackEnabled = !active) { onSelected(index) }, enabled = enabled,
                 modifier = Modifier.weight(1f).heightIn(min = EditorSettingsDefaults.TouchTarget).testTag("position.align.$axis.$index")
                     .semantics { contentDescription = label; selected = active },
-                color = if (active) MiuixTheme.colorScheme.primary.copy(alpha = .23f) else MiuixTheme.colorScheme.surfaceContainerHigh,
+                color = if (active) MiuixTheme.colorScheme.primary.copy(alpha = .23f) else glassNestedFill(MiuixTheme.colorScheme.surfaceContainerHigh),
                 shape = androidx.compose.ui.graphics.RectangleShape,
             ) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -585,7 +589,7 @@ private fun BorderPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit)
     val backgroundLabels = listOf("纯白", "纯黑", "暗色模糊", "亮色模糊") + if (glassEnabled) listOf("黑透玻璃", "白透玻璃") else emptyList()
     val enabled = state.editable()
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        TabRow(listOf("直接叠加", "外围扩边"), if (mode == "frame") 1 else 0, hapticSelection(if (mode == "frame") 1 else 0) { mode = if (it == 1) "frame" else "overlay" }, Modifier.testTag("border.mode"))
+        TabRow(listOf("直接叠加", "外围扩边"), if (mode == "frame") 1 else 0, hapticSelection(if (mode == "frame") 1 else 0) { mode = if (it == 1) "frame" else "overlay" }, Modifier.testTag("border.mode"), colors = glassTabColors())
         if (mode == "frame") {
             EditorSettingsCard {
                 BorderSlider("上边框", "top", top, { top = it }, enabled)
@@ -738,7 +742,7 @@ private fun ColorPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit) 
     var color by remember(initial) { mutableStateOf(Color(initial.toInt())) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        TabRow(listOf("调色板", "精细选择"), tab, hapticSelection(tab) { tab = it }, Modifier.testTag("color.mode"))
+        TabRow(listOf("调色板", "精细选择"), tab, hapticSelection(tab) { tab = it }, Modifier.testTag("color.mode"), colors = glassTabColors())
         if (tab == 0) ColorPalette(color, hapticSelection(color) { color = it }, Modifier.fillMaxWidth().testTag("color.palette"))
         else ColorPicker(color, { color = it }, Modifier.fillMaxWidth().testTag("color.picker"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -758,7 +762,7 @@ private fun ColorPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit) 
 private fun HistoryPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit) {
     val history = state.obj("history")
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(Modifier.fillMaxWidth(), cornerRadius = if (state.obj("template").flag("active")) 20.dp else 24.dp) {
+        Card(Modifier.fillMaxWidth(), cornerRadius = if (state.obj("template").flag("active")) 20.dp else 24.dp, colors = glassCardColors()) {
             history.rows("entries").reversed().forEach { row ->
                 RadioButtonPreference(row.text("label", "编辑"), history.integer("cursor") == row.integer("index"), { command.send("history.jump", "index" to row.integer("index")); close() }, enabled = state.editable(), modifier = Modifier.testTag("history.entry.${row.integer("index")}"))
             }

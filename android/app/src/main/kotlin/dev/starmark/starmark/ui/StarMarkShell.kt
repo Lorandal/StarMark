@@ -40,6 +40,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.blur.*
@@ -400,7 +402,10 @@ private fun SaveStyleDialog(show: Boolean, busy: Boolean, onDismiss: () -> Unit,
     var title by rememberSaveable { mutableStateOf("") }
     ChromeDialog(show = show, title = "保存为自定义样式", summary = "保留完整字体、图片与原厂资源，方便下次使用。", onDismissRequest = onDismiss) {
         Column(Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            TextField(title, { title = it.take(40) }, label = "样式名称（最多 40 字符）", singleLine = true, modifier = Modifier.fillMaxWidth().testTag("style.save.title"))
+            HalfWidthTextInput {
+                TextField(title, { title = it.take(40) }, colors = glassTextFieldColors(), label = "样式名称", singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("style.save.title").semantics { contentDescription = "样式名称（最多 40 字符）" })
+            }
             MainButton("保存样式", "style.save.confirm", !busy && title.isNotBlank()) { onSave(title.trim()) }
         }
     }

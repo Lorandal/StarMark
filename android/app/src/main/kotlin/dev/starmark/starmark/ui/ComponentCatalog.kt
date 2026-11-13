@@ -57,7 +57,6 @@ import top.yukonga.miuix.kmp.basic.Badge
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BreadcrumbBar
 import top.yukonga.miuix.kmp.basic.BreadcrumbItem
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -308,7 +307,9 @@ private fun CatalogSample(name: String, layers: CatalogLayers) {
         }
         "TextField" -> {
             var value by rememberSaveable { mutableStateOf("StarMark") }
-            TextField(value = value, onValueChange = { value = it }, label = "仅编辑示例文字")
+            HalfWidthTextInput {
+                TextField(value = value, onValueChange = { value = it }, label = "示例文字")
+            }
             Text("${value.length} 个字符", style = MiuixTheme.textStyles.footnote1)
         }
         "SearchBar" -> CatalogSearchBar()
@@ -711,7 +712,9 @@ private fun CatalogBottomSheet(name: String, layers: CatalogLayers) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("这是可以编辑的预览面板")
-            TextField(label, { label = it }, label = "预览名称", singleLine = true)
+            HalfWidthTextInput {
+                TextField(label, { label = it }, label = "预览名称", singleLine = true)
+            }
             SliderPreference(value, { value = it }, title = "预览强度", valueText = "${(value * 100).toInt()}%")
             Button(onClick = { layers.close(name) }, modifier = Modifier.fillMaxWidth()) { Text("完成预览") }
         }
@@ -733,7 +736,9 @@ private fun CatalogDialog(name: String, layers: CatalogLayers) {
             modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            TextField(value, { value = it }, label = "仅保存到当前示例", singleLine = true)
+            HalfWidthTextInput {
+                TextField(value, { value = it }, label = "示例名称", singleLine = true)
+            }
             // Vertical actions keep both actions reachable at a large system font scale.
             Button(onClick = { saved = value; layers.close(name) }, modifier = Modifier.fillMaxWidth()) { Text("确认") }
             Button(onClick = { layers.close(name) }, modifier = Modifier.fillMaxWidth()) { Text("取消") }

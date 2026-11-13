@@ -88,7 +88,7 @@ internal fun ChromeSearchField(
         }
         // One TextField preserves selection, composing text, original radius and height.
         // Query changes filter immediately and never restart the focus animation.
-        TextField(query, onQueryChange, Modifier.weight(1f).testTag(tag), label = label,
+        TextField(query, onQueryChange, Modifier.weight(1f).testTag(tag), label = label, colors = glassTextFieldColors(),
             enabled = enabled, singleLine = true, interactionSource = interaction,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { close() }))

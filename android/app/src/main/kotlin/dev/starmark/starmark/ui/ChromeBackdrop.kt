@@ -104,6 +104,9 @@ internal fun ChromeSurface(
     content: @Composable () -> Unit,
 ) {
     val effects = LocalStarMarkEffects.current
+    val scopedContent: @Composable () -> Unit = {
+        CompositionLocalProvider(LocalGlassContainer provides effects.glass) { content() }
+    }
     if (effects.systemGlass) {
         MiuiBlurSurface(modifier = modifier, cornerRadius = cornerRadius, shadowElevation = shadowElevation,
             blurRadius = when (role) {
@@ -112,7 +115,7 @@ internal fun ChromeSurface(
                 ChromeMaterialRole.Modal, ChromeMaterialRole.Popup -> ChromeMaterialRecipe.modalBlurRadiusDp.dp
                 ChromeMaterialRole.Standard -> ChromeMaterialRecipe.nativeBlurRadiusDp.dp
             },
-            role = role, strength = strength, content = content)
+            role = role, strength = strength, content = scopedContent)
         return
     }
     val backdrop = LocalChromeBackdrop.current
@@ -147,7 +150,7 @@ internal fun ChromeSurface(
     Surface(shell, shape = shape, color = Color.Transparent, shadowElevation = 0.dp) {
         Box(rim.then(if (portable) Modifier else material), propagateMinConstraints = true) {
             if (portable) Box(Modifier.matchParentSize()) { PortableGlassLayer(requireNotNull(backdrop), cornerRadius, dark, material) }
-            content()
+            scopedContent()
         }
     }
 }

@@ -29,12 +29,14 @@ internal fun UiCommand.patch(label: String, vararg fields: Pair<String, Any?>) =
 internal fun Map<*, *>.stringKeys(): Map<String, Any?> = entries.associate { it.key.toString() to it.value }
 
 @Composable
-internal fun MainButton(text: String, tag: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun MainButton(text: String, tag: String, enabled: Boolean = true, modifier: Modifier = Modifier,
+    glassMaterial: Boolean = LocalGlassContainer.current, onClick: () -> Unit) {
     Button(
         onClick = hapticClick(onClick = onClick),
         enabled = enabled,
         modifier = modifier.fillMaxWidth().testTag(tag),
         colors = ButtonDefaults.buttonColors(color = MiuixTheme.colorScheme.primary, contentColor = MiuixTheme.colorScheme.onPrimary),
+        glassMaterial = glassMaterial,
     ) { Text(text, fontWeight = FontWeight.SemiBold) }
 }
 

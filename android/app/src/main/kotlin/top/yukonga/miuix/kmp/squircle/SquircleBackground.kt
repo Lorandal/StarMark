@@ -54,6 +54,11 @@ private fun g2(ts: Dp, te: Dp, be: Dp, bs: Dp, extension: Float, absolute: Boole
     }
 }
 
+/** Share the original Surface mask with custom paint without changing its geometry. */
+@Composable
+internal fun rememberSquircleSurfaceShape(cornerRadius: Dp): Shape =
+    g2(cornerRadius, cornerRadius, cornerRadius, cornerRadius, SquircleDefaults.Extension)
+
 @Composable
 fun Modifier.squircleBackground(color: Color, cornerRadius: Dp, extension: Float = SquircleDefaults.Extension): Modifier =
     squircleBackground(color, cornerRadius, cornerRadius, cornerRadius, cornerRadius, extension)

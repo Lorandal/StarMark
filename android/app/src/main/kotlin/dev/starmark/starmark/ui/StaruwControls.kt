@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.starmark.starmark.ui.g2.SwitchPreference
-import top.yukonga.miuix.kmp.basic.TextButton
 import kotlin.math.abs
 import kotlin.math.round
 
@@ -72,7 +71,7 @@ private fun StaruwControl(control: Map<*, *>, fonts: List<Map<*, *>>, enabled: B
             val valid = !numeric || value != null && value.isFinite() && value in minimum..maximum &&
                 abs((value - minimum) / step - round((value - minimum) / step)) <= 1e-9
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PanelTextField(text, { text = it.take(65536) }, title, tag, enabled)
+                PanelTextField(text, { text = it.take(65536) }, title, tag, enabled, halfWidth = !numeric)
                 if (numeric) SupportingText("范围 $minimum–$maximum，步长 $step")
                 MainButton("应用", "$tag.apply", enabled && valid && text != current, Modifier.fillMaxWidth()) {
                     set(if (numeric) value else text)

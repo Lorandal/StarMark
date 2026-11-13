@@ -240,7 +240,7 @@ private fun HomeBannerActionVisual(index: Int, interaction: MutableInteractionSo
     // refraction/highlight, tint, and the common card-local placement of all pixels.
     CompositionLocalProvider(LocalStarMarkEffects provides effects.copy(systemGlassSupported = false)) {
         ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled).testTag("home.actionVisual.$index"), cornerRadius = 28.dp, role = ChromeMaterialRole.HeaderButton) {
-            Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF3482FF).copy(alpha = if (effects.glass) .64f else 1f)), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().then(if (effects.glass) Modifier.glassActionPaint(Color(0xFF3482FF), 28.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled) else Modifier.clip(CircleShape).background(Color(0xFF3482FF).copy(alpha = if (effects.glass) .64f else 1f))), contentAlignment = Alignment.Center) {
                 Icon(when (index) { 0 -> MiuixIcons.Edit; 1 -> MiuixIcons.Add; else -> MiuixIcons.Image }, null,
                     Modifier.fillMaxSize(24f / 56f), tint = Color.White)
             }

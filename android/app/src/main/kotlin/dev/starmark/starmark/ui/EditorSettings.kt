@@ -1,11 +1,13 @@
 package dev.starmark.starmark.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -25,6 +27,14 @@ internal object EditorSettingsDefaults {
     val RowPadding = PaddingValues(horizontal = RowInset, vertical = 12.dp)
 }
 
+/** Retain the form row and trailing edge; halve only its editable surface. */
+@Composable
+internal fun HalfWidthTextInput(modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable () -> Unit) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Box(Modifier.fillMaxWidth(if (enabled) .5f else 1f)) { content() }
+    }
+}
+
 /** The page owns the outer gutter. Each preference owns its single inset inside this card. */
 @Composable
 internal fun EditorSettingsCard(
@@ -36,6 +46,7 @@ internal fun EditorSettingsCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = EditorSettingsDefaults.CardRadius,
         insideMargin = insideMargin,
+        colors = glassCardColors(),
         content = content,
     )
 }
