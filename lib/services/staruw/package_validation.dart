@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'contract.dart';
 import 'font_file.dart';
 import '../../editor/xiaomi_capabilities.dart';
+import '../../editor/xiaomi_background_choices.dart';
 import '../../editor/region_replacements.dart';
 
 const staruwCapabilities = <String>{
@@ -718,6 +719,9 @@ class StaruwPackageValidator {
       'E_BINDING',
       '初始原厂布局不存在',
     );
+    final materialConfig = xiaomiMaterialConfig(
+      Map<String, dynamic>.from(config),
+    );
     for (final b in space['bindings'] as List) {
       staruwNeed(!bindings.containsKey(b['id']), 'E_BINDING', '原厂绑定 ID 重复');
       bindings[b['id'] as String] = b as Map;
@@ -779,7 +783,9 @@ class StaruwPackageValidator {
             property == 'layout' && b['nodeType'] == 'LayoutGroup' ||
                 node is Map &&
                     (property == 'background' &&
-                            node['background_optional'] == true ||
+                            (staruwPointer(materialConfig, p)
+                                    as Map)['background_optional'] ==
+                                true ||
                         property.startsWith('customizeSettings.') ||
                         property.startsWith('mix.') ||
                         property.startsWith('mixText.') ||

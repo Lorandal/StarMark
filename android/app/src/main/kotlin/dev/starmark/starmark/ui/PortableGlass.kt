@@ -13,11 +13,13 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import top.yukonga.miuix.kmp.blur.Backdrop
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.LayerOutsets
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.*
 import dev.chrisbanes.haze.glass.*
@@ -30,9 +32,9 @@ private val PortableSourceOutset = 16.dp
 internal fun portableInput(state: HazeState) = HazeInput.Sources(state, retention = HazeSourceRetention.ClearWhenUnavailable)
 
 @Composable
-internal fun portableGlassMaterial(input: HazeInput.Sources, radius: Dp, dark: Boolean): Modifier {
+internal fun portableGlassMaterial(input: HazeInput.Sources, radius: Dp, dark: Boolean, cornerKind: CornerKind): Modifier {
     val frosted = LocalStarMarkEffects.current.mode == GlassMode.Frosted
-    val style = remember(radius, dark, frosted) {
+    val style = remember(radius, cornerKind, dark, frosted) {
         GlassStyle.regular.then {
             // Regular follows host uiMode; StarMark's explicit app theme can differ.
             // Override every theme-dependent Regular property after replaying the preset.
@@ -42,7 +44,11 @@ internal fun portableGlassMaterial(input: HazeInput.Sources, radius: Dp, dark: B
             contrast(PortableGlassRecipe.contrast(dark))
             whitePoint(PortableGlassRecipe.whitePoint(dark))
             chromaMultiplier(PortableGlassRecipe.chroma)
-            shape(RoundedCornerShape(radius))
+            // Haze takes round-rect optics. The enclosing Surface owns the visible G2 clip.
+            shape(RoundedCornerShape(object : CornerSize {
+                override fun toPx(shapeSize: Size, density: Density): Float =
+                    cornerKind.resolve(shapeSize.width, shapeSize.height, with(density) { radius.toPx() }).opticalRadius
+            }))
             // Neutral material tint retains the native surface's luminance floor
             // over an empty dark page, while the graded source stays visible.
             // Pure black/white tint matched the grid but missed flat backgrounds.
@@ -69,7 +75,7 @@ internal fun portableGlassMaterial(input: HazeInput.Sources, radius: Dp, dark: B
  * Modal recorders already contain the single bounded Flutter frame composition. */
 @OptIn(ExperimentalHazeApi::class)
 @Composable
-internal fun PortableGlassLayer(backdrop: Backdrop, radius: Dp, dark: Boolean, fallback: Modifier) {
+internal fun PortableGlassLayer(backdrop: Backdrop, radius: Dp, dark: Boolean, fallback: Modifier, cornerKind: CornerKind = CornerKind.Fixed) {
     var failed by remember(backdrop) { mutableStateOf(false) }
     if (failed) {
         Box(Modifier.fillMaxSize().then(fallback))
@@ -81,7 +87,10 @@ internal fun PortableGlassLayer(backdrop: Backdrop, radius: Dp, dark: Boolean, f
     val background = MiuixTheme.colorScheme.background
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var recordingPosition by remember { mutableStateOf(Offset.Unspecified) }
-    Box(Modifier.fillMaxSize()) {
+    val surfaceBounds = if (cornerKind == CornerKind.Circle)
+        Modifier.fillMaxSize().wrapContentSize().aspectRatio(1f)
+    else Modifier.fillMaxSize()
+    Box(surfaceBounds) {
         Box(Modifier.matchParentSize().onGloballyPositioned {
             coordinates = it
             recordingPosition = it.positionInWindow()
@@ -122,6 +131,6 @@ internal fun PortableGlassLayer(backdrop: Backdrop, radius: Dp, dark: Boolean, f
                 android.util.Log.w("StarMarkMaterial", "Portable UI draw failed; using Miuix", error)
                 failed = true
             }
-        }.then(portableGlassMaterial(input, radius, dark)))
+        }.then(portableGlassMaterial(input, radius, dark, cornerKind)))
     }
 }

@@ -20,7 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -63,7 +69,11 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
     val selecting = selection.flag("active")
     var deletingIds by remember { mutableStateOf<List<String>?>(null) }
     BackHandler(enabled = selecting && state.text("page", "home") == "home") { command.send("draft.selection.cancel") }
-    LazyColumn(Modifier.fillMaxSize().testTag("screen.home"), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp).withChromeInsets(chromeInsets), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val list = rememberLazyListState()
+    val padding = PaddingValues(top = 12.dp, bottom = 24.dp).withChromeInsets(chromeInsets)
+    val railInsets = rootRailListInsets(list, padding.calculateBottomPadding(), drafts.size)
+    LazyColumn(Modifier.fillMaxSize().testTag("screen.home"), state = list,
+        contentPadding = padding.withChromeInsets(railInsets), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "home-banners") { HomeBannerCarousel(state, command, bannerPage) }
         item {
             Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), cornerRadius = 20.dp) {
@@ -71,7 +81,8 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth()
+                .heightIn(min = 48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 SmallTitle(if (selecting && selectionInChrome) "已选择 ${selection.integer("selectedCount")} 项" else "最近草稿", Modifier.weight(1f), insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp))
                 if (selecting && !selectionInChrome) TextButton("取消", hapticClick { command.send("draft.selection.cancel") }, enabled = !busy, modifier = Modifier.testTag("draft.selection.cancel"), insideMargin = PaddingValues(horizontal = 8.dp, vertical = 8.dp))
                 if (drafts.isNotEmpty() && !selectionInChrome) {
@@ -90,14 +101,15 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
             val updated = draft.text("updated")
             val timestamp = remember(updated) { homeDraftTimestamp(updated) }
             Card(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(MiuixCornerShape(20.dp)).stockPress(interaction, StockPressKind.Row, !busy)
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(MiuixCornerShape(20.dp)).stockPress(interaction, StockPressKind.Row, !busy),
+                cornerRadius = 20.dp,
+            ) {
+                Row(Modifier.fillMaxWidth()
                     .combinedClickable(interactionSource = interaction, indication = null, enabled = !busy, role = Role.Button,
                         onLongClickLabel = "选择草稿", onLongClick = { command.send("draft.selection.begin", "id" to draft.text("id")) },
                         onClick = hapticClick(toggleHaptic(draft.flag("selected")), feedbackEnabled = selecting) { command.send(if (selecting) "draft.selection.toggle" else "draft.restore", "id" to draft.text("id")) })
-                    .testTag("draft.${draft.text("id")}"),
-                cornerRadius = 20.dp, insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 60.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    .testTag("draft.${draft.text("id")}").padding(horizontal = 16.dp, vertical = 12.dp).heightIn(min = 60.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     PhotoThumbnail(draft.text("image"), Modifier.size(60.dp), draft.text("title"), cornerRadius = 12.dp, decodeEdge = 256)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text(draft.text("title", "照片草稿"), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -227,10 +239,13 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
     val selectedStyle = styleRows(state).firstOrNull { it.flag("selected") }
     val watermarkEnabled = state.obj("document").flag("enabled", true)
     val gridGap = 12.dp
+    val fullRow: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val columns = (maxWidth.value / 128f).toInt().coerceIn(3, 8)
-        LazyColumn(Modifier.fillMaxSize().testTag("screen.batch"), contentPadding = PaddingValues(12.dp).withChromeInsets(chromeInsets), verticalArrangement = Arrangement.spacedBy(gridGap)) {
-            item {
+        LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.fillMaxSize().testTag("screen.batch"),
+            contentPadding = PaddingValues(12.dp).withChromeInsets(chromeInsets),
+            verticalArrangement = Arrangement.spacedBy(gridGap), horizontalArrangement = Arrangement.spacedBy(gridGap)) {
+            item(key = "summary", span = fullRow) {
                 Card(Modifier.fillMaxWidth().testTag("batch.summary"), cornerRadius = 24.dp, insideMargin = PaddingValues(16.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -241,7 +256,7 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                     }
                 }
             }
-            item(key = "watermarkStyle") {
+            item(key = "watermarkStyle", span = fullRow) {
                 Card(Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
                     ArrowPreference("水印样式",
                         summary = if (!watermarkEnabled) "无水印" else selectedStyle?.text("title") ?: "当前编辑样式",
@@ -253,7 +268,7 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                         })
                 }
             }
-            if (running || completed > 0 || batch.flag("cancelled")) item {
+            if (running || completed > 0 || batch.flag("cancelled")) item(key = "progress", span = fullRow) {
                 Card(Modifier.fillMaxWidth().testTag("batch.progress"), cornerRadius = 24.dp, insideMargin = PaddingValues(16.dp)) {
                     Text(if (running) "正在导出 $completed / $total" else if (batch.flag("cancelled")) "已停止后续导出" else "批量导出完成", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
@@ -265,7 +280,7 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                     if (running) TextButton("停止后续照片", hapticClick { command.send("batch.cancel") }, Modifier.fillMaxWidth().padding(top = 8.dp).testTag("batch.cancel"))
                 }
             }
-            item {
+            item(key = "actions", span = fullRow) {
                 Row(Modifier.fillMaxWidth().testTag("batch.actions"), verticalAlignment = Alignment.CenterVertically) {
                     HapticCheckboxPreference("全选照片", checked = allSelected,
                         onCheckedChange = { command.send("batch.selectAll", "selected" to it) },
@@ -287,33 +302,28 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                     }
                 }
             }
-            items(photos.chunked(columns), key = { row -> "photos.${row.first().text("id")}" }) { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gridGap)) {
-                    row.forEach { photo ->
-                        val selected = photo.flag("selected")
-                        Surface(
-                            onClick = hapticClick(toggleHaptic(selected)) { command.send("batch.toggle", "id" to photo.text("id")) }, enabled = !busy,
-                            modifier = Modifier.weight(1f).aspectRatio(1f).testTag("batch.photo.${photo.text("id")}"),
-                            shape = MiuixCornerShape(12.dp),
-                            color = MiuixTheme.colorScheme.surfaceContainer,
-                            border = if (selected) BorderStroke(2.dp, MiuixTheme.colorScheme.primary) else null,
-                        ) {
-                            Box(Modifier.fillMaxSize()) {
-                                PhotoThumbnail(photo.text("image"), Modifier.fillMaxSize(), photo.text("title", "照片"), cornerRadius = 12.dp)
-                                Checkbox(if (selected) ToggleableState.On else ToggleableState.Off, { command.send("batch.toggle", "id" to photo.text("id")) }, enabled = !busy,
-                                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).testTag("batch.item.${photo.text("id")}"))
-                            }
-                        }
+            items(photos, key = { "photo.${it.text("id")}" }) { photo ->
+                val selected = photo.flag("selected")
+                Surface(
+                    onClick = hapticClick(toggleHaptic(selected)) { command.send("batch.toggle", "id" to photo.text("id")) }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).testTag("batch.photo.${photo.text("id")}"),
+                    shape = MiuixCornerShape(12.dp),
+                    color = MiuixTheme.colorScheme.surfaceContainer,
+                    border = if (selected) BorderStroke(2.dp, MiuixTheme.colorScheme.primary) else null,
+                ) {
+                    Box(Modifier.fillMaxSize()) {
+                        PhotoThumbnail(photo.text("image"), Modifier.fillMaxSize(), photo.text("title", "照片"), cornerRadius = 12.dp)
+                        Checkbox(if (selected) ToggleableState.On else ToggleableState.Off, { command.send("batch.toggle", "id" to photo.text("id")) }, enabled = !busy,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).testTag("batch.item.${photo.text("id")}"))
                     }
-                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
-            if (photos.isEmpty()) item {
+            if (photos.isEmpty()) item(key = "empty", span = fullRow) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
                     SupportingText("添加照片后即可批量导出")
                 }
             }
-            item {
+            item(key = "export", span = fullRow) {
                 Card(Modifier.fillMaxWidth(), cornerRadius = 24.dp, insideMargin = PaddingValues(16.dp)) {
                     Text("使用当前水印", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
@@ -333,7 +343,11 @@ internal fun SettingsPage(state: Map<*, *>, command: UiCommand, chromeInsets: Pa
     var askDetails by remember { mutableStateOf(false) }
     var showDetails by rememberSaveable { mutableStateOf(false) }
     val versionInteraction = remember { MutableInteractionSource() }
-    LazyColumn(Modifier.fillMaxSize().testTag("screen.settings"), contentPadding = PaddingValues(12.dp).withChromeInsets(chromeInsets), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val list = rememberLazyListState()
+    val padding = PaddingValues(12.dp).withChromeInsets(chromeInsets)
+    val railInsets = rootRailListInsets(list, padding.calculateBottomPadding(), showDetails)
+    LazyColumn(Modifier.fillMaxSize().testTag("screen.settings"), state = list,
+        contentPadding = padding.withChromeInsets(railInsets), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { SmallTitle("外观", insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) }
         item {
             Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {

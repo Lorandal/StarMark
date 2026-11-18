@@ -21,6 +21,7 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
     private var shell: View? = null
     private var canvasView: View? = null
     private var viewport: android.graphics.Rect? = null
+    private var surfaceBounds: android.graphics.Rect? = null
     private var previewClip: Rect? = null
     private var previewRadius = 0f
     private val previewPath = android.graphics.Path()
@@ -92,24 +93,25 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
         super.onViewRemoved(child)
     }
 
-    fun updateViewport(rect: Rect?) {
-        val next = rect?.takeIf {
-            it.left.isFinite() && it.top.isFinite() && it.right.isFinite() &&
-                it.bottom.isFinite() && it.width >= 1f && it.height >= 1f
-        }?.let {
-            android.graphics.Rect(
-                it.left.roundToInt(),
-                it.top.roundToInt(),
-                it.right.roundToInt(),
-                it.bottom.roundToInt(),
-            ).takeIf { bounds -> bounds.width() > 0 && bounds.height() > 0 }
-        }
-        if (next == viewport) return
+    private fun Rect?.pixelBounds() = this?.takeIf {
+        it.left.isFinite() && it.top.isFinite() && it.right.isFinite() &&
+            it.bottom.isFinite() && it.width >= 1f && it.height >= 1f
+    }?.let {
+        android.graphics.Rect(it.left.roundToInt(), it.top.roundToInt(), it.right.roundToInt(), it.bottom.roundToInt())
+            .takeIf { bounds -> bounds.width() > 0 && bounds.height() > 0 }
+    }
+
+    fun updateViewport(rect: Rect?, surface: Rect? = rect) {
+        val next = rect.pixelBounds()
+        val nextSurface = surface.pixelBounds()
+        if (next == viewport && nextSurface == surfaceBounds) return
+        val resize = nextSurface != surfaceBounds
         viewport = next
+        surfaceBounds = nextSurface
         previewPathDirty = true
         photoGeometryRevision++
         updateCanvasVisibility()
-        requestLayout()
+        if (resize) requestLayout() else invalidate()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -120,7 +122,7 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
             MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY),
         )
-        val area = viewport
+        val area = surfaceBounds
         canvasView?.measure(
             MeasureSpec.makeMeasureSpec(area?.width() ?: 1, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(area?.height() ?: 1, MeasureSpec.EXACTLY),
@@ -128,7 +130,7 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        val area = viewport
+        val area = surfaceBounds
         canvasView?.layout(area?.left ?: 0, area?.top ?: 0, area?.right ?: 1, area?.bottom ?: 1)
         shell?.layout(0, 0, right - left, bottom - top)
     }
@@ -156,7 +158,12 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
         val left = location[0].toFloat()
         val top = location[1].toFloat()
         val bounds = Rect(left, top, left + texture.width, top + texture.height)
+        val surface = surfaceBounds ?: return null
+        val photo = viewport ?: return null
         val visible = Rect(left + localVisible.left, top + localVisible.top, left + localVisible.right, top + localVisible.bottom)
+            .intersect(Rect(left + photo.left - surface.left, top + photo.top - surface.top,
+                left + photo.right - surface.left, top + photo.bottom - surface.top))
+        if (visible.isEmpty) return null
         var alpha = 1f
         var ancestor: View? = texture
         while (ancestor != null) {

@@ -28,6 +28,7 @@ import '../services/watermark_repository.dart';
 import '../services/factory_watermarks.dart';
 import 'model_lockup.dart';
 import 'xiaomi_renderer.dart';
+import 'xiaomi_background_choices.dart';
 import 'font_metrics.dart';
 import 'high_resolution_export.dart';
 import 'xiaomi_capabilities.dart';
@@ -264,6 +265,9 @@ class EditorController extends ChangeNotifier {
         'bindings': doc.resourceBindings,
         'regions': doc.regionReplacements,
         'modelId': doc.modelId,
+        if (doc.xiaomiConfig case final config?
+            when xiaomiMaterialConfig(config)['starmarkCenterModelInk'] == true)
+          'modelInk': [doc.modelOverride, doc.showBrand, doc.showModel],
       } else ...{
         'addedImages': doc.resourceBindings['staruwAssets'],
         'addedFonts': doc.resourceBindings['staruwFonts'],
@@ -367,6 +371,7 @@ class EditorController extends ChangeNotifier {
         regionAssets: _regionArtwork,
         modelLockup: _modelLockup(doc, photo, resources),
         imageContentBounds: resources.imageContentBounds,
+        modelInkCenters: resources.modelInkCenters,
         images: resources.images,
         vectors: resources.vectors,
         fonts: {
@@ -1755,7 +1760,7 @@ class EditorController extends ChangeNotifier {
               caseSensitive: false,
             ).hasMatch(entry.key.split('/').last)) {
               resources.imageContentBounds[entry.key] =
-                  await ModelLockupAssets.bitmapInkBounds(decoded);
+                  (await ModelLockupAssets.measureBitmapInk(decoded)).bounds;
             }
           } finally {
             codec?.dispose();
@@ -2023,9 +2028,14 @@ class EditorController extends ChangeNotifier {
       if (ownsBackground) nextBackground?.dispose();
       return;
     }
-    XiaomiRenderPlan? staruwNative;
-    if (d.isStaruw && !d.isStaruwScene && image != null) {
-      staruwNative = _makeNativePlan(
+    XiaomiRenderPlan? preparedNative;
+    final config = d.xiaomiConfig;
+    if (image != null &&
+        config != null &&
+        !d.isStaruwScene &&
+        (d.isStaruw ||
+            xiaomiMaterialConfig(config)['starmarkCenterModelInk'] == true)) {
+      preparedNative = _makeNativePlan(
         d,
         photo,
         image,
@@ -2034,11 +2044,14 @@ class EditorController extends ChangeNotifier {
         nextBackground,
         backgroundToned: nextBackgroundToned,
       );
-      final nativeResources = await _staruwResourcesFor(d, package);
-      await staruwNative.prepareStaruw(nativeResources);
-      if (!stale()) _nativeStaruwResources = nativeResources;
+      if (d.isStaruw) {
+        final nativeResources = await _staruwResourcesFor(d, package);
+        await preparedNative.prepareStaruw(nativeResources);
+        if (!stale()) _nativeStaruwResources = nativeResources;
+      }
+      await preparedNative.prepareModelAlignment();
       if (stale()) {
-        staruwNative.disposeStaruw();
+        preparedNative.disposeStaruw();
         if (ownsBackground) nextBackground?.dispose();
         return;
       }
@@ -2046,9 +2059,9 @@ class EditorController extends ChangeNotifier {
     // Publish one complete render state. The previous document, face, pictures
     // and background remain usable throughout first-use package preparation.
     final previousBackground = background;
-    if (staruwNative != null) {
+    if (preparedNative != null) {
       _plan?.disposeStaruw();
-      _plan = staruwNative;
+      _plan = preparedNative;
       _planDocument = d;
       _planImage = image;
       _planBackground = nextBackground;
@@ -2565,6 +2578,7 @@ class EditorController extends ChangeNotifier {
       if (d.isStaruw && native != null) {
         await native.prepareStaruw(await _staruwResourcesFor(d, package!));
       }
+      if (native != null) await native.prepareModelAlignment();
       _exportProgress('rendering');
       final recorder = ui.PictureRecorder(), canvas = ui.Canvas(recorder);
       final painter = WatermarkPainter(
@@ -2796,6 +2810,7 @@ class _PackageResources {
   final Map<String, ui.Image> images = {};
   final Map<String, RegionArtwork> vectors = {};
   final Map<String, Rect> imageContentBounds = {};
+  final Map<String, ui.Offset> modelInkCenters = {};
   final Map<String, String> fonts = {}, fontHashes = {}, localizations = {};
   void dispose() {
     scene?.dispose();

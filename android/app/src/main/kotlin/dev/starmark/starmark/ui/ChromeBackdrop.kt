@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -54,12 +55,14 @@ internal val LocalChromeBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 internal fun ChromePane(
     modifier: Modifier = Modifier,
     systemGlassLocalFallbackPossible: Boolean = true,
+    externalPhotoOrigin: Offset? = null,
     body: @Composable BoxScope.() -> Unit,
     chrome: @Composable BoxScope.() -> Unit,
 ) {
     val effects = LocalStarMarkEffects.current
     val record = backdropRecordingNeeded(effects.glass, effects.systemGlass, isRuntimeShaderSupported(), systemGlassLocalFallbackPossible)
-    val backdrop = rememberLayerBackdrop()
+    val backdrop = if (externalPhotoOrigin != null && record) rememberExternalPhotoBackdrop(true, externalPhotoOrigin)
+        else rememberLayerBackdrop()
     CompositionLocalProvider(LocalChromeBackdrop provides backdrop) {
         Box(modifier) {
             Box(Modifier.fillMaxSize().then(if (record) Modifier.layerBackdrop(backdrop) else Modifier), content = body)
@@ -73,7 +76,7 @@ internal fun ChromePane(
 internal fun ChromeTextButton(text: String, tag: String, enabled: Boolean = true, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Box(Modifier.fillMaxWidth().height(52.dp).testTag(tag).clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = hapticClick(onClick = onClick))) {
-        ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled), cornerRadius = 26.dp) {
+        ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled), cornerRadius = 26.dp, cornerKind = CornerKind.Capsule) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(text, fontSize = 17.sp, color = if (enabled) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
             }
@@ -101,6 +104,7 @@ internal fun ChromeSurface(
     shadowElevation: Dp = 4.dp,
     role: ChromeMaterialRole = ChromeMaterialRole.Standard,
     strength: Float = 1f,
+    cornerKind: CornerKind = CornerKind.Fixed,
     content: @Composable () -> Unit,
 ) {
     val effects = LocalStarMarkEffects.current
@@ -115,7 +119,7 @@ internal fun ChromeSurface(
                 ChromeMaterialRole.Modal, ChromeMaterialRole.Popup -> ChromeMaterialRecipe.modalBlurRadiusDp.dp
                 ChromeMaterialRole.Standard -> ChromeMaterialRecipe.nativeBlurRadiusDp.dp
             },
-            role = role, strength = strength, content = scopedContent)
+            role = role, strength = strength, cornerKind = cornerKind, content = scopedContent)
         return
     }
     val backdrop = LocalChromeBackdrop.current
@@ -124,7 +128,7 @@ internal fun ChromeSurface(
     val portable = portableMaterialBackend(effects.glass, effects.systemGlass, backdrop != null,
         isRuntimeShaderSupported(), LocalPortableGlassEnabled.current) == PortableMaterialBackend.Haze
     val navigation = role == ChromeMaterialRole.Navigation
-    val shape = MiuixCornerShape(cornerRadius)
+    val shape = MiuixCornerShape(cornerRadius, cornerKind)
     val material = if (glass) Modifier.textureBlur(
         backdrop = requireNotNull(backdrop), shape = shape, blurRadius = if (role == ChromeMaterialRole.Modal || role == ChromeMaterialRole.Popup) ChromeMaterialRecipe.modalBlurRadiusDp else ChromeMaterialRecipe.blurRadiusDp,
         colors = BlurDefaults.blurColors((if (navigation || role == ChromeMaterialRole.HeaderButton) ChromeMaterialRecipe.glass(dark) else ChromeMaterialRecipe.frosted(dark)).map {
@@ -151,7 +155,7 @@ internal fun ChromeSurface(
             spotColor = Color.Black.copy(alpha = spotAlpha))
     Surface(shell, shape = shape, color = Color.Transparent, shadowElevation = 0.dp) {
         Box(rim.then(if (portable) Modifier else material), propagateMinConstraints = true) {
-            if (portable) Box(Modifier.matchParentSize()) { PortableGlassLayer(requireNotNull(backdrop), cornerRadius, dark, material) }
+            if (portable) Box(Modifier.matchParentSize()) { PortableGlassLayer(requireNotNull(backdrop), cornerRadius, dark, material, cornerKind) }
             scopedContent()
         }
     }
@@ -159,7 +163,8 @@ internal fun ChromeSurface(
 
 /** Keep text sharp; blur and tint fade to the untouched scrolling page at the lower edge. */
 @Composable
-internal fun ChromeTopBar(settingsPane: Boolean = false, content: @Composable () -> Unit) {
+internal fun ChromeTopBar(settingsPane: Boolean = false, foldEditorBand: androidx.compose.ui.unit.Dp? = null,
+                          content: @Composable () -> Unit) {
     val backdrop = LocalChromeBackdrop.current
     val effects = LocalStarMarkEffects.current
     val glass = effects.glass && backdrop != null && isRuntimeShaderSupported()
@@ -171,7 +176,9 @@ internal fun ChromeTopBar(settingsPane: Boolean = false, content: @Composable ()
     // gradient just below the compact toolbar. The old .44 page-color blend
     // washed out photos; normalizing against the expandable title also stretched
     // the blur during collapse. A fixed band avoids both changes in appearance.
-    val bandHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
+    val bandHeight = foldEditorBand ?: (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp)
+    val foldTint = if (foldEditorBand == null) Modifier else Modifier.background(Brush.verticalGradient(
+        0f to background.copy(alpha = .60f), .55f to background.copy(alpha = .30f), 1f to background.copy(alpha = 0f)))
     // Match Miuix TopAppBar's hit policy, including our SVG brand header.
     Box(Modifier.pointerInput(Unit) { detectTapGestures { /* Consume background taps. */ } }) {
         // The Settings fade continues below its 56dp toolbar without reserving list space
@@ -189,7 +196,9 @@ internal fun ChromeTopBar(settingsPane: Boolean = false, content: @Composable ()
                 0f to background, .4f to background, .56f to background.copy(alpha = .94f),
                 .67f to background.copy(alpha = .82f), .82f to background.copy(alpha = .48f),
                 1f to background.copy(alpha = 0f),
-            )) else Modifier))
+            )) else foldTint))
+        else if (foldEditorBand != null) Box(Modifier.fillMaxWidth().height(bandHeight).background(Brush.verticalGradient(
+            0f to background, .65f to background.copy(alpha = .85f), 1f to background.copy(alpha = 0f))))
         else Box(Modifier.matchParentSize().background(background))
         content()
     }

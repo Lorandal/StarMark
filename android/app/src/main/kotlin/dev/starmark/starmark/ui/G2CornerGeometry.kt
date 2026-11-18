@@ -18,6 +18,21 @@ object G2CornerGeometry {
     private const val STRAIGHT_EXTENSION = .15
     private const val CIRCLE_CONTROL = .5522847498307936
 
+    private fun surfaceBlend(extent: Double, halfMin: Double) =
+        ((extent / halfMin - .7853982) / (1 - .7853982)).coerceIn(0.0, 1.0)
+
+    /** Enclosing optical round rect for the visible surface cubic. The limiting
+     * radii are .88385 of the Miuix extent and .99888 for its circular cubic.
+     * Round down at both ends to keep subpixel material available to the G2 mask. */
+    internal fun enclosingSurfaceRadius(width: Float, height: Float, radius: Float): Float {
+        val half = minOf(width, height) / 2f
+        if (half <= 0f) return 0f
+        val extent = (radius * EXTENSION).coerceAtMost(half)
+        if (extent == half) return half
+        val blend = surfaceBlend(extent.toDouble(), half.toDouble())
+        return (extent * (.883 + .115 * blend)).toFloat()
+    }
+
     fun write(sink: G2PathSink, width: Float, height: Float, radius: Float,
         extension: Float = EXTENSION, profile: G2CornerProfile = G2CornerProfile.Miuix) =
         write(sink, width, height, radius, radius, radius, radius, extension, profile)
@@ -45,7 +60,7 @@ object G2CornerGeometry {
             G2CornerProfile.Circular -> null
             G2CornerProfile.Miuix -> .643
             G2CornerProfile.MiuixSurface -> {
-                val blend=((r/halfMin-.7853982)/(1-.7853982)).coerceIn(0.0,1.0)
+                val blend=surfaceBlend(r, halfMin.toDouble())
                 if (blend==1.0) null else .643+(CIRCLE_CONTROL-.643)*blend
             }
         }

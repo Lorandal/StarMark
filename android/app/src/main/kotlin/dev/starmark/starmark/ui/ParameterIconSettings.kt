@@ -136,10 +136,10 @@ internal fun ParameterIconChoiceCard(
                         Box(Modifier.matchParentSize().layerBackdrop(backdrop)
                             .background(MiuixTheme.colorScheme.surface, CircleShape))
                         CompositionLocalProvider(LocalChromeBackdrop provides backdrop) {
-                            ChromeSurface(Modifier.fillMaxSize(), cornerRadius = 24.dp) {
+                            ChromeSurface(Modifier.fillMaxSize(), cornerRadius = 24.dp, cornerKind = CornerKind.Circle) {
                                 Box(Modifier.fillMaxSize().then(
                                     if (LocalStarMarkEffects.current.glass)
-                                        Modifier.glassActionPaint(primary.copy(alpha = .22f), 24.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled, frosted = LocalStarMarkEffects.current.mode == GlassMode.Frosted)
+                                        Modifier.glassActionPaint(primary.copy(alpha = .22f), 24.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled, shape = MiuixCornerShape.Circle, frosted = LocalStarMarkEffects.current.mode == GlassMode.Frosted)
                                     else Modifier.clip(CircleShape).background(primary.copy(alpha = .22f))), contentAlignment = Alignment.Center) {
                                     Icon(MiuixIcons.Add, null, Modifier.size(26.dp), tint = primary)
                                 }

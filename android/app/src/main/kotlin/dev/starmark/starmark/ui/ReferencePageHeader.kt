@@ -95,7 +95,7 @@ private fun ReferenceBackButton(materialProgress: Float, onBack: () -> Unit) {
         .clickable(interaction, indication = null, role = Role.Button, onClick = onBack), contentAlignment = Alignment.Center) {
         // Only the backdrop/blends animate. The native sampling View and chevron never move.
         if (materialProgress > 0f) {
-            ChromeSurface(Modifier.size(44.dp).testTag("header.back.material"), cornerRadius = 22.dp,
+            ChromeSurface(Modifier.size(44.dp).testTag("header.back.material"), cornerRadius = 22.dp, cornerKind = CornerKind.Circle,
                 role = ChromeMaterialRole.HeaderButton, strength = materialProgress) {}
         }
         Icon(ReferenceIcons.Back, "返回", Modifier.size(28.dp), tint = MiuixTheme.colorScheme.onSurface)

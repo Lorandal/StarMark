@@ -170,7 +170,12 @@ internal fun ChromeAnchoredPopup(
                             radius = if (effects.reduceMotion) 0f else 50f * sourceMaterial,
                             accessible = false,
                             modifier = Modifier.align(Alignment.Center).size(start.width.dp, start.height.dp)
-                                .graphicsLayer { alpha = 1f - sourceMaterial; scaleX = frame.width / start.width },
+                                .graphicsLayer {
+                                    alpha = 1f - sourceMaterial
+                                    val scale = minOf(frame.width / start.width, frame.height / start.height)
+                                    scaleX = scale
+                                    scaleY = scale
+                                },
                         ) { source() }
                     }
                 }

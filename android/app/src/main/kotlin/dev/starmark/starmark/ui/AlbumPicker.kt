@@ -339,7 +339,8 @@ private fun AlbumPickerScreen(
                 }
             }
         }
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.align(Alignment.CenterHorizontally).widthIn(max = 528.dp).fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(if (selection.isEmpty()) "导入照片" else "导入 ${selection.size} 张照片", hapticClick(onClick = onImport),
                 enabled = !loading && selection.isNotEmpty(), colors = ButtonDefaults.textButtonColorsPrimary(),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("album.import"))

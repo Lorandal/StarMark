@@ -130,6 +130,7 @@ dependencies {
     implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
     implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
     implementation("androidx.activity:activity-compose:1.12.3")
+    implementation("androidx.window:window:1.2.0")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.savedstate:savedstate:1.4.0")

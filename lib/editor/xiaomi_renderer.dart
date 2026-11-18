@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ class XiaomiRenderResources {
   final Map<String, RegionArtwork> vectors;
   final Map<String, RegionArtwork> regionAssets;
   final Map<String, Rect> imageContentBounds;
+  final Map<String, Offset>? modelInkCenters;
   final Map<String, String> fonts;
   final Map<String, double> fontCapHeights;
   final String defaultFamily;
@@ -32,6 +34,7 @@ class XiaomiRenderResources {
     required this.fonts,
     required this.defaultFamily,
     this.imageContentBounds = const {},
+    this.modelInkCenters,
     this.fontCapHeights = const {},
     this.background,
     this.backgroundToned = false,
@@ -178,7 +181,64 @@ class XiaomiRenderPlan {
     return Map.unmodifiable(_contentBounds);
   }
 
-  late final Rect? _rawDecorationBounds = _measureDecorationBounds();
+  Rect? _decorationBounds;
+  bool _boundsMeasured = false;
+  Rect? get _rawDecorationBounds {
+    if (!_boundsMeasured) {
+      _contentBounds.clear();
+      _decorationBounds = _measureDecorationBounds();
+      _boundsMeasured = true;
+    }
+    return _decorationBounds;
+  }
+
+  /// Balance visible strokes vertically while keeping the full name's left
+  /// and right margins even. Measure on transparency so the material's color
+  /// and the spacer at the end of the row do not contribute any weight.
+  Future<void> prepareModelAlignment() async {
+    final run = _builder.centeredModel;
+    if (run == null || run.unrotated.isEmpty) return;
+    final cache = _builder.resources.modelInkCenters;
+    final key = _builder.modelInkKey;
+    var center = cache?[key];
+    if (center == null) {
+      final area = (Offset.zero & run.unrotated).inflate(
+        run.unrotated.height / 2,
+      );
+      final scale = math.min(1536 / area.width, 160 / area.height);
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)
+        ..scale(scale)
+        ..translate(
+          -area.left - run.inkOffset.dx,
+          -area.top - run.inkOffset.dy,
+        );
+      _builder.paintLocal(canvas, run);
+      final picture = recorder.endRecording();
+      try {
+        final image = await picture.toImage(
+          (area.width * scale).ceil(),
+          (area.height * scale).ceil(),
+        );
+        try {
+          final ink = await ModelLockupAssets.measureBitmapInk(image);
+          if (ink.bounds.isEmpty) return;
+          center =
+              area.topLeft + Offset(ink.bounds.center.dx, ink.centerY) / scale;
+        } finally {
+          image.dispose();
+        }
+      } finally {
+        picture.dispose();
+      }
+      if (cache != null) {
+        if (cache.length >= 32) cache.remove(cache.keys.first);
+        cache[key] = center;
+      }
+    }
+    run.inkOffset = _builder.modelTarget - center;
+    _boundsMeasured = false;
+  }
 
   Rect? _measureDecorationBounds() {
     Rect? result;
@@ -203,11 +263,14 @@ class XiaomiRenderPlan {
 
     void local(_Node node, Offset Function(Offset) parent) {
       if (!node.visible || node.source) return;
-      Offset transform(Offset point) => parent(switch (node.degree) {
-        90 => Offset(node.size.width - point.dy, point.dx),
-        270 => Offset(point.dy, node.size.height - point.dx),
-        _ => point,
-      });
+      Offset transform(Offset point) => parent(
+        node.inkOffset +
+            switch (node.degree) {
+              90 => Offset(node.size.width - point.dy, point.dx),
+              270 => Offset(point.dy, node.size.height - point.dx),
+              _ => point,
+            },
+      );
       final text = node.text;
       if (text != null) {
         final placement = _builder.textPlacement(node);
@@ -280,7 +343,9 @@ class XiaomiRenderPlan {
     final requested = options['background'];
     if (requested != null) {
       for (final b in backgrounds) {
-        if (_map(b)['name'] == requested) return _map(b);
+        if (b['name'] == requested || b['starmarkPreviousName'] == requested) {
+          return b;
+        }
       }
       throw FormatException('Unknown Xiaomi background: $requested');
     }
@@ -384,7 +449,7 @@ class XiaomiRenderPlan {
     Map<String, dynamic> config, [
     Map<String, dynamic> options = const {},
   ]) {
-    final groups = config['layout_group'];
+    final groups = xiaomiMaterialConfig(config)['layout_group'];
     if (groups is! List || groups.isEmpty) {
       throw const FormatException('Xiaomi layout_group is missing');
     }
@@ -460,7 +525,13 @@ class XiaomiRenderPlan {
             document.xiaomiOptions,
             resources.images.keys,
           ).normalizeDocument(document.copyWith(xiaomiConfig: config));
-    final b = _Builder(config, normalized, photo, image, resources);
+    final b = _Builder(
+      xiaomiMaterialConfig(config),
+      normalized,
+      photo,
+      image,
+      resources,
+    );
     final layouts = selectedLayouts(config, b.options);
     final roots = layouts.map((j) => b.parse(_map(j))).toList();
     final available = Size(photo.width.toDouble(), photo.height.toDouble());
@@ -659,6 +730,7 @@ class _Node {
   bool visible = true, containsSource = false;
   Size size = Size.zero, unrotated = Size.zero;
   Offset origin = Offset.zero, local = Offset.zero;
+  Offset inkOffset = Offset.zero;
   TextPainter? text;
   TextPainter? metricText;
   TextSpan? baseText;
@@ -692,6 +764,36 @@ class _Node {
 }
 
 class _Builder {
+  _Node? centeredModel;
+  Offset modelTarget = Offset.zero;
+  late final String modelInkKey = jsonEncode([
+    dp,
+    photo.metadata.make,
+    photo.metadata.model,
+    document.modelId,
+    document.modelOverride,
+    document.font.toJson(),
+    resources.defaultFamily,
+    document.regionReplacements['model'],
+    centeredModel!.json['_staruwReplacement'],
+    if (document.isStaruw) [document.staruwValues, document.staruwPhotoValues],
+    for (final c in centeredModel!.modelMembers.where((c) => c.visible))
+      [
+        c.id,
+        c.local.dx,
+        c.local.dy,
+        c.size.width,
+        c.size.height,
+        c.imagePath,
+        c.text?.text?.toPlainText(),
+        c.text?.text?.style?.fontFamily,
+        c.text?.text?.style?.fontSize,
+        c.lockupPaintRect.left,
+        c.lockupPaintRect.top,
+        c.lockupPaintRect.width,
+        c.lockupPaintRect.height,
+      ],
+  ]);
   final Map<_Node, StaruwSlot> staruwSlots = {};
   final Map<_Node, Offset> staruwSlotOrigins = {};
   final Map<String, dynamic> config;
@@ -800,6 +902,13 @@ class _Builder {
       if (foregroundIndex != null) {
         final value = foreground(int.parse(foregroundIndex));
         if (value.startsWith('#')) n.imageTint = color(value);
+      }
+      if (background?['starmarkGoldWordmark'] == true &&
+          descriptor.contains(r'path=${logo}')) {
+        final customColor = options['textColor'];
+        n.imageTint = customColor is num
+            ? Color(customColor.toInt())
+            : color('@foreground=1');
       }
       if ((n.id == 'logo' || n.id == 'leica' || n.id == 'brand_leica') &&
           !document.showBrand) {
@@ -1818,6 +1927,17 @@ class _Builder {
       c.local = Offset(x, y);
       position(c, origin + c.local);
     }
+    if (n.id == 'left_bottom_group' &&
+        config['starmarkCenterModelInk'] == true) {
+      final run = children
+          .where((c) => c.id == 'brand_layout' && c.modelMembers.isNotEmpty)
+          .firstOrNull;
+      if (run == null) return;
+      centeredModel = run;
+      modelTarget = (origin & n.unrotated).center - run.origin;
+      final center = resources.modelInkCenters?[modelInkKey];
+      if (center != null) run.inkOffset = modelTarget - center;
+    }
   }
 
   void move(_Node n, Offset delta) {
@@ -1897,10 +2017,14 @@ class _Builder {
   }
 
   void paintBackground(Canvas canvas, _Node n, {Rect? bounds}) {
-    final value = backgroundValue(
-      '${n.json['background'] ?? ''}',
-      optional: n.json['background_optional'] == true,
-    );
+    final tint = n.json['starmarkMaterialTint'];
+    final value =
+        tint is String && _photoBlurAlgorithm('${background?['value']}') != null
+        ? tint
+        : backgroundValue(
+            '${n.json['background'] ?? ''}',
+            optional: n.json['background_optional'] == true,
+          );
     if (value.isEmpty) return;
     final rect = bounds ?? Offset.zero & n.unrotated;
     final c = RegExp(r'@color=(#[0-9A-Fa-f]+)').firstMatch(value)?.group(1);
@@ -2088,6 +2212,9 @@ class _Builder {
 
   void paintLocal(Canvas canvas, _Node n, {double pixelRatio = 1}) {
     if (!n.visible || n.source) return;
+    if (n.inkOffset != Offset.zero) {
+      canvas.translate(n.inkOffset.dx, n.inkOffset.dy);
+    }
     if (n.degree == 90) {
       canvas.translate(n.size.width, 0);
       canvas.rotate(math.pi / 2);

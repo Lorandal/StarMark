@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:watermark_engine/watermark_engine.dart';
 import '../../editor/xiaomi_capabilities.dart';
+import '../../editor/xiaomi_background_choices.dart';
 import '../../editor/region_replacements.dart';
 import '../watermark_package.dart';
 import '../watermark_repository.dart';
@@ -267,7 +268,7 @@ Future<WatermarkPackage> migrateStaruwNative(
     if (control['scope'] != 'photo') defaults[cid] = value;
   }
 
-  final groups = root['layout_group'] as List;
+  final groups = xiaomiMaterialConfig(root)['layout_group'] as List;
   final layouts = <Map<String, dynamic>>[];
   for (var g = 0; g < groups.length; g++) {
     for (final e in (groups[g] as Map).entries) {
@@ -502,6 +503,11 @@ Future<WatermarkPackage> migrateStaruwNative(
                 'selection': {'kind': 'option', 'key': v['name']},
               },
           ];
+          final requested = doc.xiaomiOptions['background'];
+          final selectedName =
+              requested == caps.backgroundChoices.first['starmarkPreviousName']
+              ? caps.backgroundChoices.first['name']
+              : requested;
           bind(
             pointer,
             node,
@@ -519,8 +525,7 @@ Future<WatermarkPackage> migrateStaruwNative(
                   },
               ],
             },
-            doc.xiaomiOptions['background'] ??
-                caps.backgroundChoices.first['name'],
+            selectedName ?? caps.backgroundChoices.first['name'],
             when: when,
             variants: variants,
           );

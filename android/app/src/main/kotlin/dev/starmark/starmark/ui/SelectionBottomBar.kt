@@ -52,7 +52,7 @@ internal fun FloatingActionSurface(frame: BottomBarFrame, width: Dp, height: Dp,
                 alpha = frame.actionsAlpha
                 translationY = frame.actionsOffsetDp.dp.toPx()
             },
-        cornerRadius = radius, role = ChromeMaterialRole.Navigation,
+        cornerRadius = radius, cornerKind = navigationCornerKind(LocalDensity.current.fontScale), role = ChromeMaterialRole.Navigation,
         shadowElevation = if (effects.glass) 8.dp else 0.dp,
     ) {
         MiuiSelfBlurHost(radius = 50f * (1f - frame.actionsAlpha), accessible = interactive,
@@ -76,7 +76,7 @@ internal fun WatermarkSelectionBar(state: Map<*, *>, command: UiCommand, importT
         val bottom = if (dark) Color(0xf5000000) else Color(0xf5f3f3f3)
         Brush.verticalGradient(listOf(bottom.copy(alpha = 0f), bottom))
     }
-    BoxWithConstraints(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal))) {
+    BoxWithConstraints(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
         val metrics = floatingNavigationMetrics(maxWidth.value, density.fontScale, 4)
         Column(Modifier.fillMaxWidth()
             .then(if (effects.systemGlass) Modifier.drawBehind { drawRect(underlay) } else Modifier)
@@ -94,11 +94,13 @@ internal fun WatermarkSelectionBar(state: Map<*, *>, command: UiCommand, importT
                                 scaleX = frame.navigationScale; scaleY = frame.navigationScale
                             }.then(if (interactive) Modifier else Modifier.clearAndSetSemantics {})) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            ChromeTextButton("导入水印文件", importTag, interactive) { command.send("style.import") }
+                            Box(Modifier.widthIn(max = 480.dp).fillMaxWidth()) {
+                                ChromeTextButton("导入水印文件", importTag, interactive) { command.send("style.import") }
+                            }
                         }
                     }
                 }
-                FloatingActionSurface(frame, metrics.width.dp, metrics.height.dp, metrics.radius.dp,
+                FloatingActionSurface(frame, metrics.width.dp, metrics.height.dp, metrics.layerRadius(metrics.height.dp, density),
                     selecting, enabled, true, "watermark") { interactive ->
                     fun selectedIds() = styleRows(state).filter { it.flag("checked") }.map { it.text("id") }
                     SelectionActions(interactive, selection.integer("selectedCount") > 0, selection.flag("allSelected"),

@@ -94,17 +94,20 @@ class ModelLockupAssets {
   @visibleForTesting
   int get debugRasterMaskCount => _vectorMasks._entries.length;
 
-  /// Visible logo geometry, excluding transparent padding and a soft shadow.
-  /// Half of the peak alpha also works for uniformly translucent package logos.
-  static Future<Rect> bitmapInkBounds(ui.Image image) async {
+  /// The half-peak bounds exclude soft shadows and transparent padding. The
+  /// vertical center of mass counts each painted row by its alpha coverage.
+  static Future<({Rect bounds, double centerY})> measureBitmapInk(
+    ui.Image image,
+  ) async {
     final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (bytes == null) {
-      return Rect.fromLTWH(
+      final bounds = Rect.fromLTWH(
         0,
         0,
         image.width.toDouble(),
         image.height.toDouble(),
       );
+      return (bounds: bounds, centerY: bounds.center.dy);
     }
     final data = bytes.buffer.asUint8List(
       bytes.offsetInBytes,
@@ -114,23 +117,32 @@ class ModelLockupAssets {
     for (var i = 3; i < data.length; i += 4) {
       peak = math.max(peak, data[i]);
     }
-    if (peak == 0) return Rect.zero;
+    if (peak == 0) return (bounds: Rect.zero, centerY: 0.0);
     final threshold = (peak / 2).ceil();
     var left = image.width, top = image.height, right = 0, bottom = 0;
+    var coverage = 0, rowMoment = 0.0;
     for (var y = 0; y < image.height; y++) {
+      var rowCoverage = 0;
       for (var x = 0; x < image.width; x++) {
-        if (data[(y * image.width + x) * 4 + 3] < threshold) continue;
+        final alpha = data[(y * image.width + x) * 4 + 3];
+        rowCoverage += alpha;
+        if (alpha < threshold) continue;
         left = math.min(left, x);
         top = math.min(top, y);
         right = math.max(right, x + 1);
         bottom = math.max(bottom, y + 1);
       }
+      coverage += rowCoverage;
+      rowMoment += (y + .5) * rowCoverage;
     }
-    return Rect.fromLTRB(
-      left.toDouble(),
-      top.toDouble(),
-      right.toDouble(),
-      bottom.toDouble(),
+    return (
+      bounds: Rect.fromLTRB(
+        left.toDouble(),
+        top.toDouble(),
+        right.toDouble(),
+        bottom.toDouble(),
+      ),
+      centerY: rowMoment / coverage,
     );
   }
 

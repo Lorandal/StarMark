@@ -5,7 +5,6 @@ package dev.starmark.starmark.ui.g2
 
 // Adapted from Miuix 0.9.4: only track geometry changes; interaction and accessibility stay upstream.
 import dev.starmark.starmark.ui.MiuixCornerShape
-import dev.starmark.starmark.ui.drawG2Track
 import dev.starmark.starmark.ui.drawG2Rect
 import androidx.compose.ui.graphics.Path
 
@@ -26,7 +25,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -77,7 +76,7 @@ fun LinearProgressIndicator(
             modifier = modifier
                 .semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate }
                 .fillMaxWidth()
-                .height(height),
+                .height(height).clip(MiuixCornerShape.Capsule),
         ) {
             drawG2Rect(
                 path = trackPath,
@@ -108,7 +107,8 @@ fun LinearProgressIndicator(
                 radius = cornerRadius,
             )
 
-            val minWidth = cornerRadius * 2
+            // Keep the usual round starting dot, leaving travel on a very short track.
+            val minWidth = (size.width - size.height).coerceIn(0f, size.height)
             val progressWidth = minWidth + (size.width - minWidth) * progressValue
 
             drawG2Rect(
@@ -170,21 +170,7 @@ fun CircularProgressIndicator(
                 .semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate }
                 .size(size),
         ) {
-            val strokeWidthPx = strokeWidth.toPx()
-            val radius = (size.toPx() - strokeWidthPx) / 2
-            val center = Offset(size.toPx() / 2, size.toPx() / 2)
-
-            drawCircularBackground(currentBackgroundColor, radius, center, strokeWidthPx)
-
-            drawArc(
-                color = currentForegroundColor,
-                startAngle = rotationAnim,
-                sweepAngle = sweepAnim,
-                useCenter = false,
-                topLeft = Offset(strokeWidthPx / 2, strokeWidthPx / 2),
-                size = Size(2 * radius, 2 * radius),
-                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
-            )
+            drawProgressRing(currentBackgroundColor, currentForegroundColor, strokeWidth, rotationAnim, sweepAnim)
         }
     } else {
         val progressValue = progress.coerceIn(0f, 1f)
@@ -194,24 +180,9 @@ fun CircularProgressIndicator(
                 .semantics { progressBarRangeInfo = ProgressBarRangeInfo(progressValue, 0f..1f) }
                 .size(size),
         ) {
-            val strokeWidthPx = strokeWidth.toPx()
-            val radius = (size.toPx() - strokeWidthPx) / 2
-            val center = Offset(size.toPx() / 2, size.toPx() / 2)
-
-            drawCircularBackground(currentBackgroundColor, radius, center, strokeWidthPx)
-
             val minSweepAngle = 0.1f
             val sweepAngle = minSweepAngle + (360f - minSweepAngle) * progressValue
-
-            drawArc(
-                color = currentForegroundColor,
-                startAngle = -90f,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                topLeft = Offset(strokeWidthPx / 2, strokeWidthPx / 2),
-                size = Size(2 * radius, 2 * radius),
-                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
-            )
+            drawProgressRing(currentBackgroundColor, currentForegroundColor, strokeWidth, -90f, sweepAngle)
         }
     }
 }
@@ -247,10 +218,11 @@ fun InfiniteProgressIndicator(
     Canvas(
         modifier = modifier.size(size),
     ) {
-        val strokeWidthPx = strokeWidth.toPx()
-        val orbitingDotSizePx = orbitingDotSize.toPx()
-        val center = Offset(this.size.width / 2, this.size.height / 2)
-        val radius = (size.toPx() - strokeWidthPx) / 2
+        val diameter = this.size.minDimension
+        if (diameter <= 0f) return@Canvas
+        val strokeWidthPx = strokeWidth.toPx().coerceIn(0f, diameter)
+        val radius = (diameter - strokeWidthPx) / 2f
+        val orbitingDotSizePx = orbitingDotSize.toPx().coerceIn(0f, diameter / 2f)
 
         drawCircle(
             color = color,
@@ -259,7 +231,7 @@ fun InfiniteProgressIndicator(
             style = Stroke(strokeWidthPx, cap = StrokeCap.Round),
         )
 
-        val orbitRadius = radius - 2 * orbitingDotSizePx
+        val orbitRadius = (radius - 2 * orbitingDotSizePx).coerceAtLeast(0f)
         val angle = rotation * (PI / 180.0).toFloat()
         val dotCenter = center + Offset(
             x = orbitRadius * cos(angle),
@@ -315,21 +287,17 @@ private fun DrawScope.drawIndeterminateSegment(
     }
 }
 
-/**
- * Draws a circular background ring used by [CircularProgressIndicator].
- */
-private fun DrawScope.drawCircularBackground(
-    color: Color,
-    radius: Float,
-    center: Offset,
-    strokeWidthPx: Float,
+private fun DrawScope.drawProgressRing(
+    background: Color, foreground: Color, stroke: Dp, startAngle: Float, sweepAngle: Float,
 ) {
-    drawCircle(
-        color = color,
-        radius = radius,
-        center = center,
-        style = Stroke(width = strokeWidthPx),
-    )
+    val diameter = size.minDimension
+    if (diameter <= 0f) return
+    val lineWidth = stroke.toPx().coerceIn(0f, diameter)
+    val radius = (diameter - lineWidth) / 2f
+    drawCircle(background, radius, center, style = Stroke(lineWidth))
+    drawArc(foreground, startAngle, sweepAngle, useCenter = false,
+        topLeft = center - Offset(radius, radius), size = Size(2f * radius, 2f * radius),
+        style = Stroke(lineWidth, cap = StrokeCap.Round))
 }
 
 object ProgressIndicatorDefaults {

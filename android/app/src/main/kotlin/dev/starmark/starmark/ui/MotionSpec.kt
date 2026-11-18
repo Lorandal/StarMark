@@ -103,11 +103,14 @@ internal class SpringValue(initial: Float) {
 internal data class FloatingNavigationMetrics(val width: Float, val height: Float, val radius: Float, val labelSize: Float)
 
 internal const val navigationInset = 3f
+internal const val navigationTouchSize = 48f
+internal const val largeNavigationRadius = 31f
+internal fun navigationCornerKind(fontScale: Float) = if (fontScale >= 1.6f) CornerKind.Fixed else CornerKind.Capsule
 private const val navigationOverlap = 10f
 
 /** The clock's item Views overlap. The selected overlay is as wide as its View. */
 internal data class FloatingNavigationTrack(val width: Float, val count: Int) {
-    private val spaceAboveTouchMinimum = (width - 48f * count).coerceAtLeast(0f)
+    private val spaceAboveTouchMinimum = (width - navigationTouchSize * count).coerceAtLeast(0f)
     private val inset = min(navigationInset, spaceAboveTouchMinimum / 2f)
     private val overlap = if (count == 1) 0f else min(navigationOverlap, spaceAboveTouchMinimum - 2f * inset)
     val itemWidth = (width - 2f * inset + (count - 1) * overlap) / count
@@ -116,7 +119,15 @@ internal data class FloatingNavigationTrack(val width: Float, val count: Int) {
     fun center(index: Int) = start(index) + itemWidth / 2f
     fun focusStart(index: Int) = center(index) - focusWidth / 2f
     fun nearest(x: Float) = (0 until count).minBy { abs(center(it) - x) }
+
+    fun fitUprightContent(contentHeight: Float, availableLength: Float): FloatingNavigationTrack {
+        if (contentHeight <= focusWidth) return this
+        val ends = 2f * navigationInset + if (count > 1) navigationOverlap else 0f
+        return FloatingNavigationTrack(min(count * contentHeight + ends, availableLength), count)
+    }
 }
+
+internal fun compactRailTrack(count: Int) = FloatingNavigationTrack(navigationTouchSize * count, count)
 
 internal fun floatingNavigationMetrics(
     availableWidth: Float, fontScale: Float, itemCount: Int = 4, widestLabel: Float = 0f,
@@ -134,9 +145,9 @@ internal fun floatingNavigationMetrics(
         itemsSpace > 400f -> min(344f, shellLimit)
         else -> shellLimit
     }
-    val large = fontScale >= 1.6f
+    val large = navigationCornerKind(fontScale) == CornerKind.Fixed
     val height = if (large) max(80f, 40f + 38.4f * fontScale) else 40f + 15f * max(1f, fontScale)
-    return FloatingNavigationMetrics(width, height, if (large) 31f else height / 2f, if (large) 16f else 11f)
+    return FloatingNavigationMetrics(width, height, if (large) largeNavigationRadius else height / 2f, if (large) 16f else 11f)
 }
 
 internal fun navigationBottomMargin(inset: Float) = if (inset < 24f) 24f else inset + 8f

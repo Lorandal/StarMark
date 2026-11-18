@@ -14,7 +14,6 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,10 +29,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -65,6 +66,8 @@ internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPa
     val context = LocalContext.current
     val effects = LocalStarMarkEffects.current
     val density = LocalDensity.current
+    val window = LocalWindowInfo.current.containerSize
+    val landscape = window.width > window.height
     val scope = rememberCoroutineScope()
     val interactions = remember { List(3) { MutableInteractionSource() } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -104,11 +107,47 @@ internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPa
             override val touchSlop = ViewConfiguration.get(context).scaledPagingTouchSlop.toFloat()
         }
     }
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("home.bannerPager")) {
-        val cardSize = maxWidth * (890f / 1200f)
-        val stride = cardSize + maxWidth * (10f / 1200f)
+    @Composable fun ActionCard(index: Int, width: Dp, enabled: Boolean) {
+        val background = when (index) {
+            0 -> resume.text("image").ifBlank { "assets/home/background2.webp" }
+            1 -> "assets/home/background1.webp"
+            else -> "assets/home/background3.webp"
+        }
+        val thumbnail = if (index == 0 && resume.text("image").isNotBlank())
+            resume.text("watermarkPreview").ifBlank { homeResumePreview(styles) } else preview
+        HomeBannerCard(index, background, thumbnail, family ?: FontFamily.SansSerif, interactions[index],
+            enabled = enabled,
+            decodeEdge = with(density) { width.toPx().roundToInt().coerceAtMost(1200) },
+        ) {
+            page = index
+            position.floatValue = index.toFloat()
+            when (index) {
+                0 -> if (resume.text("draftId").isNotBlank()) command.send("draft.restore", "id" to resume.text("draftId")) else command.send("navigate", "page" to "editor")
+                1 -> command.send("photo.import")
+                else -> command.send("navigate", "page" to "batch")
+            }
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        // Keep the four-character titles and the two footer controls visible at larger text sizes.
+        val minCardWidth = maxOf(180.dp, with(density) { 32.sp.toDp() } * 4 + 40.dp)
+        val cardWidth = (maxWidth - 48.dp) / 3
+        if (landscape && maxWidth >= 600.dp && cardWidth >= minCardWidth) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).testTag("home.bannerGrid"),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(3) { index ->
+                    Box(Modifier.weight(1f).aspectRatio(1f).testTag("home.banner.$index")) {
+                        ActionCard(index, cardWidth, active)
+                    }
+                }
+            }
+            return@BoxWithConstraints
+        }
+        val cardLayoutWidth = minOf(maxWidth, 560.dp)
+        val cardSize = cardLayoutWidth * (890f / 1200f)
+        val stride = cardSize + cardLayoutWidth * (10f / 1200f)
         val stridePx = with(density) { stride.toPx() }
-        val viewportWidthPx = with(density) { maxWidth.toPx() }
+        val cardLayoutWidthPx = with(density) { cardLayoutWidth.toPx() }
         fun settle(target: Int, velocity: Float = 0f) {
             motion?.cancel()
             val destination = target.coerceIn(0, 2)
@@ -124,9 +163,15 @@ internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPa
         }
         // Outside the view or tab, stop rendering animation frames and keep a settled page.
         LaunchedEffect(active) { if (!active) { motion?.cancel(); position.floatValue = page.toFloat(); moving = false } }
-        DisposableEffect(Unit) { onDispose { motion?.cancel() } }
+        DisposableEffect(Unit) {
+            onDispose {
+                motion?.cancel()
+                position.floatValue = page.toFloat()
+                moving = false
+            }
+        }
         CompositionLocalProvider(LocalViewConfiguration provides pagingTouch) {
-            Box(Modifier.fillMaxWidth().height(cardSize + 16.dp).clipToBounds()
+            Box(Modifier.width(if (landscape) cardLayoutWidth else maxWidth).height(cardSize + 16.dp).testTag("home.bannerPager").clipToBounds()
                 .semantics {
                     stateDescription = "${bannerTitles[page]}，${page + 1}/3"
                     horizontalScrollAxisRange = ScrollAxisRange({ position.floatValue }, { 2f })
@@ -142,31 +187,14 @@ internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPa
                 contentAlignment = Alignment.Center,
             ) {
                 repeat(3) { index ->
-                    val background = when (index) {
-                        0 -> resume.text("image").ifBlank { "assets/home/background2.webp" }
-                        1 -> "assets/home/background1.webp"
-                        else -> "assets/home/background3.webp"
-                    }
-                    val fixed = resume.text("watermarkPreview").ifBlank { homeResumePreview(styles) }
-                    val thumbnail = if (index == 0 && resume.text("image").isNotBlank()) fixed else preview
                     Box(Modifier.size(cardSize).graphicsLayer {
-                        val transform = homeBannerCardTransform(viewportWidthPx, index, position.floatValue)
+                        val transform = homeBannerCardTransform(cardLayoutWidthPx, index, position.floatValue)
                         scaleX = transform.scale
                         scaleY = transform.scale
                         translationX = transform.translationX
                     }.then(if (index != page) Modifier.clearAndSetSemantics {} else Modifier)
                         .testTag("home.banner.$index")) {
-                        HomeBannerCard(index, background, thumbnail, family ?: FontFamily.SansSerif, interactions[index],
-                            enabled = active && index == page && !moving,
-                            bannerWidthDp = cardSize.value,
-                            decodeEdge = with(density) { cardSize.toPx().roundToInt().coerceAtMost(1200) },
-                        ) {
-                            when (index) {
-                                0 -> if (resume.text("draftId").isNotBlank()) command.send("draft.restore", "id" to resume.text("draftId")) else command.send("navigate", "page" to "editor")
-                                1 -> command.send("photo.import")
-                                else -> command.send("navigate", "page" to "batch")
-                            }
-                        }
+                        ActionCard(index, cardSize, active && index == page && !moving)
                     }
                 }
             }
@@ -175,7 +203,7 @@ internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPa
 }
 
 @Composable
-private fun HomeBannerCard(index: Int, background: String, thumbnail: String, family: FontFamily, interaction: MutableInteractionSource, enabled: Boolean, bannerWidthDp: Float, decodeEdge: Int, onClick: () -> Unit) {
+private fun HomeBannerCard(index: Int, background: String, thumbnail: String, family: FontFamily, interaction: MutableInteractionSource, enabled: Boolean, decodeEdge: Int, onClick: () -> Unit) {
     val effects = LocalStarMarkEffects.current
     val backdrop = rememberLayerBackdrop()
     val glass = effects.glass && isRuntimeShaderSupported()
@@ -194,7 +222,9 @@ private fun HomeBannerCard(index: Int, background: String, thumbnail: String, fa
         if (glass) Box(Modifier.matchParentSize().bannerGlassEdge(surface, frosted))
         Text(bannerTitles[index], Modifier.align(Alignment.TopStart).padding(20.dp), fontFamily = family, fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1)
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            HomeBannerPreview(thumbnail, bannerWidthDp, Modifier.width(72.dp).height(57.6.dp).testTag("home.preview.$index"))
+            Box(Modifier.weight(1f)) {
+                HomeBannerPreview(thumbnail, Modifier.width(72.dp).height(57.6.dp).testTag("home.preview.$index"))
+            }
             CompositionLocalProvider(LocalChromeBackdrop provides backdrop) {
                 val tag = listOf("home.continue", "photo.import", "home.batch")[index]
                 Box(Modifier.size(56.dp).testTag(tag)
@@ -209,9 +239,11 @@ private fun HomeBannerCard(index: Int, background: String, thumbnail: String, fa
     }
 }
 
-/** Clip the image bounds, not a square letterbox: official previews are 5:4. */
+internal val homePreviewCorner = 5.34.dp
+private val homePreviewShape = MiuixCornerShape(homePreviewCorner)
+
 @Composable
-private fun HomeBannerPreview(path: String, bannerWidthDp: Float, modifier: Modifier) {
+internal fun HomeBannerPreview(path: String, modifier: Modifier) {
     val context = LocalContext.current.applicationContext
     val effects = LocalStarMarkEffects.current
     val bitmap by produceState<ImageBitmap?>(null, path) {
@@ -222,10 +254,9 @@ private fun HomeBannerPreview(path: String, bannerWidthDp: Float, modifier: Modi
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
             if (image != null) {
                 val ratio = image.width.toFloat() / image.height
-                val width = minOf(72f, 57.6f * ratio)
-                val height = width / ratio
-                Image(image, "水印预览", Modifier.size(width.dp, height.dp).clip(MiuixCornerShape((width * 22f / bannerWidthDp).dp)), contentScale = ContentScale.Fit)
-            } else Box(Modifier.size(57.6.dp).clip(MiuixCornerShape(5.5.dp)).background(Color.White.copy(alpha = .4f)), contentAlignment = Alignment.Center) {
+                Image(image, "水印预览", Modifier.aspectRatio(ratio).clip(homePreviewShape), contentScale = ContentScale.Fit)
+            } else Box(Modifier.sizeIn(maxWidth = 57.6.dp, maxHeight = 57.6.dp).aspectRatio(1f)
+                .clip(homePreviewShape).background(Color.White.copy(alpha = .4f)), contentAlignment = Alignment.Center) {
                 Icon(MiuixIcons.Image, "无水印", tint = Color(0xFF747474), modifier = Modifier.size(28.dp))
             }
         }
@@ -240,8 +271,8 @@ private fun HomeBannerActionVisual(index: Int, interaction: MutableInteractionSo
     // action's material with the existing live Compose glass backend; retain mode,
     // refraction/highlight, tint, and the common card-local placement of all pixels.
     CompositionLocalProvider(LocalStarMarkEffects provides effects.copy(systemGlassSupported = false)) {
-        ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled).testTag("home.actionVisual.$index"), cornerRadius = 28.dp, role = ChromeMaterialRole.HeaderButton) {
-            Box(Modifier.fillMaxSize().then(if (effects.glass) Modifier.glassActionPaint(Color(0xFF3482FF), 28.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled, frosted = effects.mode == GlassMode.Frosted) else Modifier.clip(CircleShape).background(Color(0xFF3482FF).copy(alpha = if (effects.glass) .64f else 1f))), contentAlignment = Alignment.Center) {
+        ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled).testTag("home.actionVisual.$index"), cornerRadius = 28.dp, cornerKind = CornerKind.Circle, role = ChromeMaterialRole.HeaderButton) {
+            Box(Modifier.fillMaxSize().then(if (effects.glass) Modifier.glassActionPaint(Color(0xFF3482FF), 28.dp, MiuixTheme.colorScheme.background.luminance() < .5f, enabled = enabled, shape = MiuixCornerShape.Circle, frosted = effects.mode == GlassMode.Frosted) else Modifier.background(Color(0xFF3482FF), MiuixCornerShape.Circle)), contentAlignment = Alignment.Center) {
                 Icon(when (index) { 0 -> MiuixIcons.Edit; 1 -> MiuixIcons.Add; else -> MiuixIcons.Image }, null,
                     Modifier.fillMaxSize(24f / 56f), tint = Color.White)
             }

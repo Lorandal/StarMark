@@ -33,6 +33,8 @@ class NativeUiBridge extends ChangeNotifier {
   }
 
   static const channel = MethodChannel('dev.starmark/ui');
+  int canvasBackground = 0x00000000;
+  double canvasHorizontalBias = 0;
   final EditorController photoEditor;
   final AppUpdateService _updateService;
   bool _checkingUpdate = false, _openingUpdate = false;
@@ -801,6 +803,20 @@ class NativeUiBridge extends ChangeNotifier {
     if (_attached || _disposed) return;
     _attached = true;
     channel.setMethodCallHandler((call) async {
+      if (call.method == 'canvas.presentation') {
+        final values = call.arguments as Map;
+        final color = (values['background'] as int).toUnsigned(32);
+        final bias = (values['horizontalBias'] as num).toDouble().clamp(
+          -1.0,
+          1.0,
+        );
+        if (canvasBackground != color || canvasHorizontalBias != bias) {
+          canvasBackground = color;
+          canvasHorizontalBias = bias;
+          notifyListeners();
+        }
+        return null;
+      }
       if (call.method == 'import.progress') {
         if (_importPending &&
             ['reading', 'preparing'].contains(call.arguments)) {

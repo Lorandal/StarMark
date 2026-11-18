@@ -22,13 +22,13 @@ internal fun StarMarkLogo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun BrandTopBar(state: TopAppBarState? = null) {
+internal fun BrandTopBar(state: TopAppBarState? = null, compact: Boolean = false) {
     val density = LocalDensity.current
     val expanded = 96f + (density.fontScale - 1f).coerceAtLeast(0f) * 16f
     val collapseRange = expanded - 60f
     val limit = with(density) { -collapseRange.dp.toPx() }
     SideEffect { state?.heightOffsetLimit = limit }
-    val fraction = state?.collapsedFraction?.coerceIn(0f, 1f) ?: 0f
+    val fraction = if (compact) 1f else state?.collapsedFraction?.coerceIn(0f, 1f) ?: 0f
     Column(Modifier.fillMaxWidth().statusBarsPadding().height((expanded - collapseRange * fraction).dp).padding(start = 28.dp, end = 24.dp, top = (24f - 10f * fraction).dp).testTag("home.brandHeader")) {
         StarMarkLogo(Modifier.width((174f - 54f * fraction).dp))
     }

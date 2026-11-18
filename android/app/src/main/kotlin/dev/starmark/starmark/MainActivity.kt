@@ -79,6 +79,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var uiChannel: MethodChannel? = null
     private lateinit var host: MiuixHostLayout
     private var currentSystemBarBackground: Int? = null
+    private var canvasHorizontalBias = 0f
+    private var lastCanvasPresentation: Pair<Int, Float>? = null
     private var lastMaterialSupport: Boolean? = null
 
     override fun provideRootLayout(context: Context): FrameLayout =
@@ -114,14 +116,24 @@ class MainActivity : FlutterFragmentActivity() {
                         StarMarkShell(
                             state = uiState,
                             onCommand = ::sendUiCommand,
-                            onCanvasBounds = host::updateViewport,
+                            onCanvasBounds = { bounds ->
+                                host.updateViewport(bounds)
+                                updateCanvasPresentation(0f)
+                            },
+                            onEditorViewport = { photo, surface, bias ->
+                                host.updateViewport(photo, surface)
+                                updateCanvasPresentation(bias)
+                            },
                             onCanvasClip = host::updateCanvasClip,
                             onCanvasMotion = host::updatePageMotion,
                             onMaterialCapability = ::materialCapabilityChanged,
                             onBackgroundColor = { color ->
-                                host.setBackgroundColor(color)
-                                currentSystemBarBackground = color
-                                updateSystemBarAppearance(window, color)
+                                if (currentSystemBarBackground != color) {
+                                    currentSystemBarBackground = color
+                                    host.setBackgroundColor(color)
+                                    updateSystemBarAppearance(window, color)
+                                    updateCanvasPresentation(canvasHorizontalBias)
+                                }
                             },
                         )
                     }
@@ -160,6 +172,15 @@ class MainActivity : FlutterFragmentActivity() {
         if (previous != null && previous != supported) sendUiCommand("material.changed", emptyMap())
     }
 
+    private fun updateCanvasPresentation(bias: Float) {
+        canvasHorizontalBias = bias
+        val color = currentSystemBarBackground ?: return
+        val channel = uiChannel ?: return
+        if (uiState.isEmpty() || lastCanvasPresentation == (color to bias)) return
+        lastCanvasPresentation = color to bias
+        channel.invokeMethod("canvas.presentation", mapOf("background" to color, "horizontalBias" to bias))
+    }
+
     private fun sendUiCommand(action: String, args: Map<String, Any?>) {
         if (action == "navigate" && (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             android.util.Log.d("StarMarkUi", "navigate page=${args["page"]}")
@@ -191,6 +212,7 @@ class MainActivity : FlutterFragmentActivity() {
                     } else {
                         uiState = snapshot.toMap()
                         result.success(null)
+                        updateCanvasPresentation(canvasHorizontalBias)
                     }
                 }
             }

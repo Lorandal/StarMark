@@ -18,7 +18,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.platform.testTag
@@ -35,12 +35,13 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun styleRows(state: Map<*, *>): List<Map<*, *>> = (state["styles"] as? List<*>)?.filterIsInstance<Map<*, *>>() ?: emptyList()
 
 @Composable
-internal fun WatermarkPickerPage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues()) {
+internal fun WatermarkPickerPage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues(),
+    galleryRightInset: Dp = 0.dp, editSelectedInPhoto: (() -> Unit)? = null) {
     val enabled = state.obj("document").flag("enabled", true)
     val rows = styleRows(state)
-    val selecting = state.obj("watermarkSelection").flag("active")
+    val selecting = editSelectedInPhoto == null && state.obj("watermarkSelection").flag("active")
     LazyColumn(Modifier.fillMaxSize().testTag("screen.watermarks"), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp).withChromeInsets(chromeInsets), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-        item {
+        if (editSelectedInPhoto == null) item {
             Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth()) {
                 SwitchPreference(enabled, { command.patch("照片水印开关", "enabled" to it) }, "照片水印", enabled = state.editable() && !selecting, modifier = Modifier.testTag("watermarks.enabled"))
             }
@@ -49,7 +50,8 @@ internal fun WatermarkPickerPage(state: Map<*, *>, command: UiCommand, chromeIns
             item(key = "group.$category") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(group.first().text("categoryTitle", "自定义水印"), modifier = Modifier.padding(horizontal = 28.dp), style = MiuixTheme.textStyles.subtitle)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.testTag("watermarks.group.$category")) {
+                    val rowPadding = PaddingValues.Absolute(left = 18.dp, right = maxOf(18.dp, galleryRightInset))
+                    LazyRow(contentPadding = rowPadding, horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().testTag("watermarks.group.$category")) {
                         items(group, key = { it.text("id") }) { row ->
                             // Reviewed cloud previews are all 5:4. Match the image box;
                             // keep the full image inside a four-dp ring and four-dp gap.
@@ -57,11 +59,13 @@ internal fun WatermarkPickerPage(state: Map<*, *>, command: UiCommand, chromeIns
                                 else if (category == "film") 216.dp else 176.dp
                             Column {
                             WatermarkTile(row, if (selecting) row.flag("checked") else enabled && row.flag("selected"), 176.dp, MiuixTheme.colorScheme.primary, state.editable(), height = previewHeight, library = true, selecting = selecting,
-                                onLongClick = { command.send("watermark.selection.begin", "id" to row.text("id")) }) {
+                                onLongClick = if (editSelectedInPhoto != null) null else ({ command.send("watermark.selection.begin", "id" to row.text("id")) })) {
                                 if (selecting) command.send("watermark.selection.toggle", "id" to row.text("id"))
                                 else if (row.flag("preserve")) command.send("style.describe", "id" to row.text("id"))
-                                else if (enabled && row.flag("selected")) command.send("template.edit", "id" to row.text("id"))
-                                else command.send("style.apply", "id" to row.text("id"), "stayOnPage" to (state.text("returnPage") != "batch"))
+                                else if (enabled && row.flag("selected")) {
+                                    if (editSelectedInPhoto != null) editSelectedInPhoto() else command.send("template.edit", "id" to row.text("id"))
+                                }
+                                else command.send("style.apply", "id" to row.text("id"), "stayOnPage" to (editSelectedInPhoto != null || state.text("returnPage") != "batch"))
                             }
                             if (row.flag("preserve")) SupportingText("仅保留原包", Modifier.padding(horizontal = 12.dp, vertical = 4.dp).testTag("watermark.preserve.${row.text("id")}"))
                             }
@@ -112,7 +116,11 @@ private fun WatermarkConfigBadge(modifier: Modifier) {
     val background = remember { androidx.compose.ui.graphics.Path().apply { addG2Rect(16f, 16f, 2f) } }
     val pencil = remember { PathParser().parsePathString("M4.542,9.047L4.542,10.055C4.542,10.166 4.632,10.255 4.742,10.255L5.75,10.255C5.882,10.255 6.009,10.203 6.103,10.109L11.082,5.131C11.16,5.052 11.16,4.926 11.082,4.848L9.925,3.692C9.847,3.613 9.72,3.614 9.642,3.692L4.687,8.695C4.594,8.789 4.542,8.915 4.542,9.047Z").toPath() }
     Canvas(modifier) {
-        scale(size.width / 16f, size.height / 16f, pivot = androidx.compose.ui.geometry.Offset.Zero) {
+        val side = size.minDimension
+        withTransform({
+            translate((size.width - side) / 2f, (size.height - side) / 2f)
+            scale(side / 16f, side / 16f, pivot = androidx.compose.ui.geometry.Offset.Zero)
+        }) {
             drawPath(background, Color(0x80818181))
             drawPath(pencil, Color.White, style = Stroke(1f))
             drawRoundRect(Color.White, topLeft = androidx.compose.ui.geometry.Offset(4f, 11.564f), size = androidx.compose.ui.geometry.Size(8f, 1f), cornerRadius = CornerRadius(.2f))

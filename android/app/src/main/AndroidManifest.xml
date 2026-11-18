@@ -9,6 +9,7 @@
         android:label="StarMark 星拓"
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true"
+        android:resizeableActivity="true"
         android:icon="@mipmap/ic_launcher">
         <!-- Impeller/Vulkan quantizes the curved SVG model marks on Xiaomi.
              Use Flutter's bundled Skia renderer for preview AND export; the
@@ -17,9 +18,12 @@
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
+        <meta-data android:name="LandscapeForPad" android:value="true" />
+        <meta-data android:name="android.supports_size_changes" android:value="true" />
         <activity
             android:name="dev.starmark.starmark.ui.AlbumPickerActivity"
             android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density"
             android:theme="@style/NormalTheme"
             android:hardwareAccelerated="true" />
         <activity

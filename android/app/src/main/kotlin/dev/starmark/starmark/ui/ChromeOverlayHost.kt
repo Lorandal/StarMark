@@ -43,7 +43,7 @@ internal fun ChromeOverlayHost(content: @Composable () -> Unit) {
     val effects = LocalStarMarkEffects.current
     // Never replay native blur Views into a captured scene: that shifts their sampling.
     val record = host.entry != null && effects.glass && !effects.systemGlass && isRuntimeShaderSupported()
-    val backdrop = rememberModalBackdrop(record)
+    val backdrop = rememberExternalPhotoBackdrop(record)
     LaunchedEffect(host.entry?.owner) {
         if (host.entry != null) {
             focusManager.clearFocus(force = true)

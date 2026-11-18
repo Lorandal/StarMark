@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -285,6 +286,7 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
     private var userEnabled = false
     private var blurRadius = 0
     private var cornerRadius = 0f
+    private var cornerKind = CornerKind.Fixed
     private var passWindow = false
     private var role = ChromeMaterialRole.Standard
     private var strength = 1f
@@ -310,16 +312,19 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
         materialView.clipToOutline = true
         materialView.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, cornerRadius)
+                val frame = cornerKind.resolve(view.width.toFloat(), view.height.toFloat(), cornerRadius)
+                val left = frame.left.roundToInt()
+                val top = frame.top.roundToInt()
+                outline.setRoundRect(left, top, left + frame.width.roundToInt(), top + frame.height.roundToInt(), frame.opticalRadius)
             }
         }
     }
 
     fun configure(dark: Boolean, enabled: Boolean, radius: Float, corners: Float, passWindow: Boolean, shadow: Float,
-        role: ChromeMaterialRole, strength: Float) {
+        role: ChromeMaterialRole, strength: Float, cornerKind: CornerKind) {
         val nextRadius = miuiBlurRadius(radius)
         if (appliedNative && appliedRole != role) clearNative()
-        val outlineChanged = cornerRadius != corners || this.role != role
+        val outlineChanged = cornerRadius != corners || this.cornerKind != cornerKind
         val materialChanged = this.dark != dark || userEnabled != enabled || blurRadius != nextRadius || this.passWindow != passWindow || this.role != role || this.strength != strength
         this.dark = dark
         userEnabled = enabled
@@ -334,6 +339,7 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
         if (!hasShadow) materialView.elevation = shadow
         if (outlineChanged) {
             cornerRadius = corners
+            this.cornerKind = cornerKind
             materialView.invalidateOutline()
             updateCornerClip()
         }
@@ -350,13 +356,12 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
         excludedCorners.rewind()
         materialBoundary.rewind()
         invalidate()
-        if (width <= 0 || height <= 0 || cornerRadius <= 0f) return
-        // A circle has no straight junction. Capsules do: they use exactly the
-        // approved G2 shoulder while retaining the original optical RoundRect.
-        if (width == height && cornerRadius >= width / 2f) return
-        materialBoundary.addG2Rect(width.toFloat(), height.toFloat(), cornerRadius)
+        if (width <= 0 || height <= 0) return
+        val frame = cornerKind.resolve(width.toFloat(), height.toFloat(), cornerRadius)
+        if (frame.kind == CornerKind.Circle || frame.radius <= 0f) return
+        materialBoundary.asComposePath().addCornerFrame(frame)
         excludedCorners.fillType = Path.FillType.WINDING
-        excludedCorners.addRoundRect(0f,0f,width.toFloat(),height.toFloat(),cornerRadius,cornerRadius,Path.Direction.CW)
+        excludedCorners.addRoundRect(0f, 0f, frame.width, frame.height, frame.opticalRadius, frame.opticalRadius, Path.Direction.CW)
         // Remove only the narrow filled sliver between the original circle and
         // its G2 shoulder. Bounding-rectangle minus G2 would erase native shadow
         // in the empty corners and recreate the pale rectangular seam.
@@ -464,6 +469,7 @@ internal fun MiuiBlurSurface(
     passWindow: Boolean = false,
     role: ChromeMaterialRole = ChromeMaterialRole.Standard,
     strength: Float = 1f,
+    cornerKind: CornerKind = CornerKind.Fixed,
     content: @Composable () -> Unit,
 ) {
     val dark = MiuixTheme.colorScheme.background.luminance() < .5f
@@ -471,12 +477,12 @@ internal fun MiuiBlurSurface(
     var windowFallback by remember(passWindow, effects.mode, role) { mutableStateOf(false) }
     if (effects.systemGlass && windowFallback) {
         CompositionLocalProvider(LocalStarMarkEffects provides effects.copy(mode = GlassMode.Frosted)) {
-            ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, content)
+            ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, cornerKind, content)
         }
         return
     }
     if (!effects.systemGlass) {
-        ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, content)
+        ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, cornerKind, content)
         return
     }
     val density = LocalDensity.current
@@ -490,7 +496,7 @@ internal fun MiuiBlurSurface(
             AndroidView(
                 factory = { MiuiBackdropView(it) { windowFallback = true } },
                 modifier = Modifier.matchParentSize(),
-                update = { it.configure(dark, effects.systemGlass, radiusPx, cornersPx, passWindow, shadowPx, role, strength) },
+                update = { it.configure(dark, effects.systemGlass, radiusPx, cornersPx, passWindow, shadowPx, role, strength, cornerKind) },
             )
             content()
         }

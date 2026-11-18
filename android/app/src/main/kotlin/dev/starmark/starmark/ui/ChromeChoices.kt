@@ -155,7 +155,7 @@ private fun ChromeChoiceAnchor(
     val actionColor = if (enabled) MiuixTheme.colorScheme.onSurfaceVariantActions
         else MiuixTheme.colorScheme.disabledOnSecondaryVariant
     MiuixBasicComponent(
-        modifier = modifier.semantics {
+        modifier = Modifier.then(modifier).semantics {
             stateDescription = listOfNotNull(value, if (expanded) "已展开" else "已收起").joinToString("，")
             if (!enabled) disabled()
         },

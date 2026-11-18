@@ -46,6 +46,8 @@ fun MorphingMoreMenu(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
     tag: String = "editor.more",
+    interactionEnabled: Boolean = enabled,
+    glyphSize: androidx.compose.ui.unit.Dp = 28.dp,
 ) {
     val density = LocalDensity.current
     val colors = MiuixTheme.colorScheme
@@ -62,21 +64,21 @@ fun MorphingMoreMenu(
                 .onGloballyPositioned { coordinates ->
                     val origin = coordinates.localToScreen(Offset.Zero)
                     if (origin.x.isFinite() && origin.y.isFinite()) {
-                        val inset = with(density) { 2.dp.toPx() }
+                        val inset = with(density) { 2.dp.roundToPx() }
                         anchorScreen = Rect(origin.x + inset, origin.y + inset, origin.x + coordinates.size.width - inset, origin.y + coordinates.size.height - inset)
                     }
                 }.then(if (mounted) Modifier.clearAndSetSemantics {} else Modifier.testTag(tag))
                 .semantics { if (!mounted) contentDescription = "更多" }
-                .clickable(interactionSource = interaction, indication = null, enabled = available && !mounted, role = Role.Button,
+                .clickable(interactionSource = interaction, indication = null, enabled = available && interactionEnabled && !mounted, role = Role.Button,
                     onClick = hapticClick { mounted = true; expanded = !expanded }),
         contentAlignment = Alignment.Center,
     ) {
         if (!mounted || !shellReady) ChromeSurface(
             Modifier.fillMaxSize().padding(2.dp).stockPress(interaction, StockPressKind.Banner, available),
-            cornerRadius = 22.dp,
+            cornerRadius = 22.dp, cornerKind = CornerKind.Circle,
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(MiuixIcons.More, null, Modifier.size(28.dp).testTag("$tag.glyph"), tint = if (available) colors.onSurface else colors.disabledOnSurface)
+                Icon(MiuixIcons.More, null, Modifier.size(glyphSize).testTag("$tag.glyph"), tint = if (available) colors.onSurface else colors.disabledOnSurface)
             }
         }
     }
@@ -92,12 +94,12 @@ fun MorphingMoreMenu(
         tag = "$tag.menu",
         source = {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(MiuixIcons.More, null, Modifier.size(28.dp), tint = colors.onSurface)
+                Icon(MiuixIcons.More, null, Modifier.size(glyphSize), tint = colors.onSurface)
             }
         },
     ) { interactive ->
         val rowHeight = if (density.fontScale >= 1.6f) max(44f, 36f * density.fontScale + 12f) else 44f
-        MorphMenuContents(entries, rowHeight, interactive && available) { expanded = false; onAction(it) }
+        MorphMenuContents(entries, rowHeight, interactive && available && interactionEnabled) { expanded = false; onAction(it) }
     }
 }
 

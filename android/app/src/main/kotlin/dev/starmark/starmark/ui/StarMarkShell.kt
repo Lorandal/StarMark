@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
@@ -43,6 +44,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.blur.*
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -61,6 +63,7 @@ fun StarMarkShell(
     onCanvasMotion: (Float, Float, Boolean) -> Unit = { _, _, _ -> },
     onMaterialCapability: (Boolean) -> Unit = {},
     onCanvasClip: (Rect?, Float) -> Unit = { _, _ -> },
+    onEditorViewport: (Rect, Rect, Float) -> Unit = { photo, _, _ -> onCanvasBounds(photo) },
 ) {
     StarMarkTheme(state.obj("settings")) {
         val supported = LocalStarMarkEffects.current.systemGlassSupported
@@ -74,7 +77,7 @@ fun StarMarkShell(
             lastReadyState + mapOf("busy" to true) else state
         ChromeOverlayHost {
             StartupReveal(state.flag("ready"), state.text("message")) {
-                ShellContent(shellState, onCommand, onCanvasBounds, onCanvasMotion, onCanvasClip)
+                ShellContent(shellState, onCommand, onCanvasBounds, onCanvasMotion, onCanvasClip, onEditorViewport)
                 PhotoExportProgress(state.obj("export"))
                 ImportWorkflow(state.obj("import"), onCommand)
                 val operation = state.obj("operation")
@@ -87,10 +90,14 @@ fun StarMarkShell(
     }
 }
 
-private val destinations = listOf("home" to "主页", "settings" to "设置")
+private val destinations = listOf(
+    FloatingNavEntry("home", "主页", MiuixIcons.Home),
+    FloatingNavEntry("settings", "设置", ReferenceIcons.SettingsFilled),
+)
 
 @Composable
-private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (Rect?) -> Unit, onCanvasMotion: (Float, Float, Boolean) -> Unit, onCanvasClip: (Rect?, Float) -> Unit) {
+private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (Rect?) -> Unit, onCanvasMotion: (Float, Float, Boolean) -> Unit,
+                         onCanvasClip: (Rect?, Float) -> Unit, onEditorViewport: (Rect, Rect, Float) -> Unit) {
     val page = state.text("page", "home")
     val busy = state.flag("busy") || state.obj("batch").flag("running")
     var panel by rememberSaveable { mutableStateOf<String?>(null) }
@@ -134,13 +141,19 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
     Scaffold(Modifier.fillMaxSize(), containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
-        val compact = maxHeight < 500.dp
+        val sideNavigation = useTrailingTabsInCurrentWindow()
+        val compact = maxHeight < 500.dp || sideNavigation
         val effects = LocalStarMarkEffects.current
         val reduceMotion = effects.reduceMotion
         val density = LocalDensity.current
         val startup = LocalStartupProgress.current
         val layoutDirection = LocalLayoutDirection.current
-        val rootNavigationVisible = page in destinations.map { it.first }
+        val rootNavigationVisible = destinations.any { it.id == page }
+        val selectingDrafts = page == "home" && state.obj("draftSelection").flag("active")
+        val bottomNavigationVisible = rootNavigationVisible && (!sideNavigation || selectingDrafts)
+        val trailingMetrics = if (sideNavigation) rootTrailingNavigationMetrics(destinations) else null
+        val homeRailHeight = if (trailingMetrics == null) 0.dp else trailingMetrics.capsule.track.width.dp +
+            trailingMetrics.bottomPadding + WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
         val shaderSupported = isRuntimeShaderSupported()
         val rootBackdropNeeded = rootNavigationVisible && backdropRecordingNeeded(effects.glass, effects.systemGlass, shaderSupported, false)
         // The top gradient and the cross-window menu can fall back locally even
@@ -148,18 +161,26 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
         val routeBackdropNeeded = backdropRecordingNeeded(effects.glass, effects.systemGlass, shaderSupported, true)
         val bottomMargin = navigationBottomMargin(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value).dp
         val navigationHeight = floatingNavigationMetrics(maxWidth.value, density.fontScale, destinations.size).height.dp + 8.dp + bottomMargin
-        // The recorder is owned by the shell, not either animated route.  Recording
-        // only the lower screen keeps the persistent bar independent of page motion.
+        val safeRight = WindowInsets.safeDrawing.asPaddingValues().calculateRightPadding(layoutDirection)
+        // The persistent bar samples the relevant edge of both transitioning routes.
         val rootBackdrop = rememberLayerBackdrop(onDraw = {
             val contentScope = this
-            clipRect(top = (size.height - (navigationHeight + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
+            if (trailingMetrics != null && !selectingDrafts) {
+                clipRect(left = (size.width - (safeRight + trailingMetrics.clearance + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
+            } else clipRect(top = (size.height - (navigationHeight + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
         })
         Box(Modifier.fillMaxSize().then(if (rootBackdropNeeded) Modifier.layerBackdrop(rootBackdrop) else Modifier)) {
-        ReferencePageTransition(page, onCanvasMotion) { shown, offset ->
+        ReferencePageTransition(page, onCanvasMotion, trailingTabs = sideNavigation) { shown, offset ->
             routeStates.SaveableStateProvider(shown) {
             val current = shown == page
+            val rootDestination = destinations.any { it.id == shown }
+            val readingWidth = if (rootDestination && sideNavigation) Dp.Infinity else when (shown) {
+                "settings", "experiments", "components", "licenses" -> 720.dp
+                "home" -> 960.dp
+                else -> Dp.Infinity
+            }
             val guarded: UiCommand = { action, args -> if (current || (action == "adjust" && args["phase"] == "cancel")) command(action, args) }
-            val collapseEnabled = shown in destinations.map { it.first } + listOf("styles", "watermarks") && !compact
+            val collapseEnabled = (rootDestination || shown == "styles" || shown == "watermarks") && !compact
             val trackHeaderScroll = collapseEnabled || shown in listOf("styles", "watermarks", "settings")
             val barState = rememberTopAppBarState()
             val canCollapse = remember(trackHeaderScroll) { { trackHeaderScroll } }
@@ -184,21 +205,35 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                 if (shown == "editor" && effects.systemGlass) drawRect(colors.background)
                 else drawContent()
             })
-            CompositionLocalProvider(LocalChromeBackdrop provides chromeBackdrop) {
+            CompositionLocalProvider(LocalChromeBackdrop provides chromeBackdrop,
+                LocalRootNavigationRail provides null) {
+                if (shown == "editor" && sideNavigation) key(state.obj("photo").text("id")) {
+                    FoldGalleryEditor(state, guarded, { if (current) changePanel(it) }) { photo, surface, bias ->
+                        val translation = Offset(-offset(), 0f)
+                        onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
+                    }
+                } else {
+                val reserveLane = rootDestination && shown != "home" && sideNavigation && !bottomNavigationVisible
+                if (reserveLane) Box(Modifier.fillMaxSize().background(colors.background))
                 Scaffold(
-                    modifier = Modifier.fillMaxSize().scrollBoundaryHaptics { barState.heightOffset }.then(if (trackHeaderScroll) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier),
+                    modifier = Modifier.fillMaxSize().then(if (reserveLane) Modifier.absolutePadding(right = safeRight + (trailingMetrics?.clearance ?: 0.dp)) else Modifier).scrollBoundaryHaptics { barState.heightOffset }.then(if (trackHeaderScroll) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier),
                     containerColor = Color.Transparent,
                     topBar = {
                         Box(Modifier.graphicsLayer { translationY = -12.dp.toPx() * (1f - startup) }) {
                         ChromeTopBar(settingsPane = shown == "templateEditor") {
+                            Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                                .wrapContentWidth().widthIn(max = readingWidth)) {
                             when (shown) {
-                                "home" -> BrandTopBar(if (collapseEnabled) barState else null)
-                                "editor" -> CameraEditorTopBar(state, guarded) { if (current) changePanel(it) }
+                                "home" -> BrandTopBar(if (collapseEnabled) barState else null, compact = sideNavigation)
+                                "editor" -> CameraEditorTopBar(state, guarded,
+                                    sideHistory = sideNavigation && WindowInsets.ime.getBottom(density) == 0) {
+                                    if (current) changePanel(it)
+                                }
                                 "templateEditor" -> TemplateEditorTopBar(state, guarded)
                                 "styles", "watermarks", "settings" -> ReferencePageHeader(title, scrollBehavior, compact, showBack = shown != "settings") { guarded.send("navigate.back") }
                                 else -> {
                                     val navigation: @Composable () -> Unit = {
-                                        if (shown !in destinations.map { it.first }) ActionIcon("返回", "navigation.back", ReferenceIcons.Back) { guarded.send("navigate.back") }
+                                        if (!rootDestination) ActionIcon("返回", "navigation.back", ReferenceIcons.Back) { guarded.send("navigate.back") }
                                     }
                                     val actions: @Composable RowScope.() -> Unit = {}
                                     if (shown == "components" || shown == "licenses" || compact) {
@@ -207,6 +242,7 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                                         TopAppBar(title, modifier = Modifier.testTag("app.collapsingHeader"), navigationIcon = navigation, actions = actions, color = Color.Transparent, titlePadding = 28.dp, scrollBehavior = scrollBehavior)
                                     }
                                 }
+                            }
                             }
                         }
                         }
@@ -227,11 +263,14 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                         top = topInset,
                         end = routeInsets.calculateEndPadding(layoutDirection),
                     ) else routeInsets
-                    val pageInsets = if (shown in destinations.map { it.first }) PaddingValues(
+                    val reserveBottomNavigation = rootDestination && (!sideNavigation || (shown == "home" && selectingDrafts))
+                    val scrollClearance = maxOf(if (reserveBottomNavigation) navigationHeight else 0.dp,
+                        if (shown == "home") homeRailHeight else 0.dp)
+                    val pageInsets = if (scrollClearance > 0.dp) PaddingValues(
                         start = routeInsets.calculateStartPadding(layoutDirection),
                         top = routeInsets.calculateTopPadding(),
                         end = routeInsets.calculateEndPadding(layoutDirection),
-                        bottom = maxOf(routeInsets.calculateBottomPadding(), navigationHeight),
+                        bottom = maxOf(routeInsets.calculateBottomPadding(), scrollClearance),
                     ) else routeInsets
                     val pageBackground = when (shown) {
                         "templateEditor" -> Modifier // transparent window onto the sibling Flutter preview
@@ -242,8 +281,9 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                         }
                         else -> Modifier.background(colors.background)
                     }
-                    Row(Modifier.fillMaxSize().then(if (routeBackdropNeeded) Modifier.layerBackdrop(chromeBackdrop) else Modifier).then(pageBackground)) {
-                        Box(Modifier.weight(1f).fillMaxHeight().then(if (shown == "editor") Modifier.padding(editorInsets).consumeWindowInsets(editorInsets) else Modifier)) {
+                    Box(Modifier.fillMaxSize().then(if (routeBackdropNeeded) Modifier.layerBackdrop(chromeBackdrop) else Modifier).then(pageBackground),
+                        contentAlignment = Alignment.TopCenter) {
+                        Box(Modifier.widthIn(max = readingWidth).fillMaxSize().then(if (shown == "editor") Modifier.padding(editorInsets).consumeWindowInsets(editorInsets) else Modifier)) {
                             when (shown) {
                                 "templateEditor" -> key(state.obj("photo").text("id")) {
                                     TemplateEditorBody(state, guarded, { if (current) changePanel(it) }, routeInsets, { rect ->
@@ -253,7 +293,10 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                                     }, { rect, radius -> onCanvasClip(rect?.translate(Offset(-offset(), 0f)), radius) })
                                 }
                                 "editor" -> key(state.obj("photo").text("id")) {
-                                    CameraEditorBody(state, guarded, wide, { if (current) changePanel(it) }, { rect -> onCanvasBounds(rect?.translate(Offset(-offset(), 0f))) })
+                                    CameraEditorBody(state, guarded, wide, { if (current) changePanel(it) }, { photo, surface, bias ->
+                                        val translation = Offset(-offset(), 0f)
+                                        onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
+                                    }, trailingTabs = sideNavigation, bodyInsets = editorInsets)
                                 }
                                 "styles" -> Box(Modifier.fillMaxSize().testTag("screen.styles")) { WatermarkPickerPage(state, guarded, routeInsets) }
                                 "watermarks" -> WatermarkPickerPage(state, guarded, routeInsets)
@@ -271,15 +314,22 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
         }
         }
         }
+        }
         if (rootNavigationVisible) {
             CompositionLocalProvider(LocalChromeBackdrop provides rootBackdrop) {
-                FloatingNavigation(
-                    destinations.map { (id, label) -> FloatingNavEntry(id, label, destinationIcon(id)) },
+                if (!bottomNavigationVisible && trailingMetrics != null) {
+                    TrailingFloatingNavigation(destinations, page, { command.send("navigate", "page" to it) },
+                        enabled = !busy, metrics = trailingMetrics,
+                        modifier = Modifier.align(AbsoluteAlignment.BottomRight).graphicsLayer {
+                            translationY = 24.dp.toPx() * (1f - startup)
+                        })
+                } else FloatingNavigation(
+                    destinations,
                     page, { command.send("navigate", "page" to it) }, enabled = !busy,
                     modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer {
                         translationY = 24.dp.toPx() * (1f - startup)
                     },
-                    actionsVisible = page == "home" && state.obj("draftSelection").flag("active"),
+                    actionsVisible = selectingDrafts,
                     actionContent = { interactive ->
                         val selection = state.obj("draftSelection")
                         DraftSelectionActions(interactive && !busy, selection.integer("selectedCount") > 0, selection.flag("allSelected"),
@@ -342,7 +392,7 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                             .then(if (isCurrent) Modifier.testTag("editor.panel.${shown ?: "closed"}") else Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }.pointerInput(Unit) {
                                 awaitPointerEventScope { while (true) { awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } } }
                             }), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (shown != null) EditorPanel(shown, if (isCurrent) state else state + mapOf("busy" to true), guarded, { if (shown == currentPanel) changePanel(it) }, { if (shown == currentPanel) changePanel(null) })
+                            if (shown != null) EditorPanel(shown, state, guarded, { if (shown == currentPanel) changePanel(it) }, { if (shown == currentPanel) changePanel(null) })
                         }
                     }
                 }
@@ -353,18 +403,29 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
 }
 
 @Composable
-internal fun EditorCanvas(state: Map<*, *>, modifier: Modifier, onCanvasBounds: (Rect?) -> Unit) {
+internal fun EditorCanvas(
+    state: Map<*, *>, modifier: Modifier, foldAlignment: FoldPhotoAlignment?, onViewport: (Rect, Rect, Float) -> Unit,
+) {
     val layout = state.obj("layout")
     val photo = state.obj("photo")
     val width = layout.number("width", photo.number("width", 1f)).coerceAtLeast(1f)
     val height = layout.number("height", photo.number("height", 1f)).coerceAtLeast(1f)
-    Column(modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val padding = 8.dp
+    Column(modifier.padding(vertical = padding), horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val ratio = width / height
-            val slotWidth = minOf(maxWidth, maxHeight * ratio)
-            val slotHeight = slotWidth / ratio
-            // No background, pointerInput, clickable, Surface or scrolling parent in this slot.
-            Box(Modifier.size(slotWidth, slotHeight).testTag("editor.canvas").onGloballyPositioned { onCanvasBounds(it.findRootCoordinates().localBoundingBoxOf(it, clipBounds = false)) })
+            val viewport = foldAlignment?.viewport(maxWidth.value, maxHeight.value, padding.value)
+                ?: EditorPhotoViewport(EditorPaneBounds(0f, 0f, maxWidth.value, maxHeight.value))
+            val area = viewport.bounds
+            val photo = viewport.fit(ratio)
+            Box(Modifier.align(AbsoluteAlignment.TopLeft).inEditorPane(area), contentAlignment = AbsoluteAlignment.TopLeft) {
+                Box(Modifier.inEditorPane(photo, area).testTag("editor.canvas").onGloballyPositioned { slot ->
+                    val surface = slot.parentLayoutCoordinates ?: return@onGloballyPositioned
+                    val root = slot.findRootCoordinates()
+                    onViewport(root.localBoundingBoxOf(slot, clipBounds = false),
+                        root.localBoundingBoxOf(surface, clipBounds = false), viewport.horizontalBias)
+                })
+            }
         }
         val warnings = (state["modelWarnings"] as? List<*>)?.filterIsInstance<String>().orEmpty()
         if (warnings.isNotEmpty()) SupportingText("部分机型字符缺少 SVG：${warnings.joinToString(" · ")}")
@@ -376,13 +437,6 @@ private fun ActionIcon(label: String, tag: String, icon: androidx.compose.ui.gra
     IconButton(onClick = hapticClick(feedbackEnabled = tag != "navigation.back", onClick = onClick), enabled = enabled, modifier = Modifier.testTag(tag)) {
         Icon(icon, label, Modifier.size(if (icon == ReferenceIcons.Back) 28.dp else 24.dp), tint = if (enabled) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
     }
-}
-
-private fun destinationIcon(id: String) = when (id) {
-    "styles" -> MiuixIcons.Edit
-    "batch" -> MiuixIcons.Photos
-    "settings" -> ReferenceIcons.SettingsFilled
-    else -> MiuixIcons.Home
 }
 
 private fun panelTitle(id: String?, native: Boolean): String = when (id) {
@@ -410,4 +464,3 @@ private fun SaveStyleDialog(show: Boolean, busy: Boolean, onDismiss: () -> Unit,
         }
     }
 }
-

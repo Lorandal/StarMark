@@ -850,7 +850,7 @@ private fun SliderTrack(
 
     Canvas(
         modifier = modifier
-            .clip(MiuixCornerShape(1000.dp))
+            .clip(MiuixCornerShape.Capsule)
             .drawBehind {
                 drawRect(backgroundColor)
                 drawRect(Color.Black, alpha = backgroundAlpha)
@@ -952,7 +952,7 @@ private fun RangeSliderTrack(
 
     Canvas(
         modifier = modifier
-            .clip(MiuixCornerShape(1000.dp))
+            .clip(MiuixCornerShape.Capsule)
             .drawBehind {
                 drawRect(backgroundColor)
                 drawRect(Color.Black, alpha = backgroundAlpha)

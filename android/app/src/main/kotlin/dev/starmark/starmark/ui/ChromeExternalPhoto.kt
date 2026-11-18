@@ -8,9 +8,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
@@ -99,22 +101,23 @@ internal fun rememberTemplateHeaderBackdrop(record: Boolean, bounds: State<Rect?
     })
 }
 
-/** Completes the full-size popup recorder with the external Flutter photo underneath it. */
+/** Supplies the sibling Flutter pixels behind a window-sized dialog or a floating editor control. */
 @Composable
-internal fun rememberModalBackdrop(record: Boolean): LayerBackdrop {
+internal fun rememberExternalPhotoBackdrop(record: Boolean, originInWindow: Offset? = null): LayerBackdrop {
     val photo by rememberChromePhotoFrame(record, LocalChromePhotoRevision.current)
     val view = LocalView.current
     val windowOrigin = remember(view) { IntArray(2) }
+    val paneOrigin by rememberUpdatedState(originInWindow)
 
     // Closing drops both the snapshot state and its recorded GraphicsLayer. Let reference
     // ownership release bitmap storage; recycle() could race the render thread's retained image.
     return key(record) {
         rememberLayerBackdrop(onDraw = {
             if (record) photo?.let { frame ->
-                // ChromeOverlayHost fills the Compose root: this origin is also its draw origin.
-                view.getLocationInWindow(windowOrigin)
-                val x = windowOrigin[0].toFloat()
-                val y = windowOrigin[1].toFloat()
+                val origin = paneOrigin
+                if (origin == null) view.getLocationInWindow(windowOrigin)
+                val x = origin?.x ?: windowOrigin[0].toFloat()
+                val y = origin?.y ?: windowOrigin[1].toFloat()
                 val bounds = frame.boundsInWindow
                 val clip = frame.visibleBoundsInWindow
                 clipRect(clip.left - x, clip.top - y, clip.right - x, clip.bottom - y) {

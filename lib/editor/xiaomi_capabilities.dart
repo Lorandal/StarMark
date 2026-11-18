@@ -92,6 +92,7 @@ class XiaomiCapabilities {
     Map<String, dynamic> options = const {},
     Iterable<String> resourceNames = const [],
   ]) {
+    config = xiaomiMaterialConfig(config);
     final groups = config['layout_group'] as List? ?? [];
     final choice = options['layoutGroup'];
     final index = choice is num

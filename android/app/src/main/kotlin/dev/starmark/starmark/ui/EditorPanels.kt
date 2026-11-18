@@ -51,14 +51,17 @@ import java.util.UUID
 import kotlin.math.roundToInt
 
 @Composable
-internal fun EditorPanel(id: String, state: Map<*, *>, command: UiCommand, openPanel: (String) -> Unit, closePanel: () -> Unit) {
+internal fun EditorPanel(
+    id: String, state: Map<*, *>, command: UiCommand, openPanel: (String) -> Unit, closePanel: () -> Unit,
+    stackModelField: Boolean = false,
+) {
     if (state.obj("staruw").flag("enabled") && id !in setOf("styles", "history")) {
         StaruwControlsPanel(state, command)
         return
     }
     when (id) {
         "styles" -> StylesPanel(state, command, closePanel)
-        "content" -> ContentPanel(state, command, openPanel, closePanel)
+        "content" -> ContentPanel(state, command, openPanel, closePanel, stackModelField)
         "fonts" -> ImportedFontPicker(state, command)
         "position" -> PositionPanel(state, command, openPanel, closePanel)
         "border" -> if (state.obj("native").flag("enabled")) NativeLayoutPanel(state, command) else BorderPanel(state, command, closePanel)
@@ -109,7 +112,9 @@ private fun StylesPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit)
 }
 
 @Composable
-internal fun ContentPanel(state: Map<*, *>, command: UiCommand, open: (String) -> Unit, close: () -> Unit) {
+internal fun ContentPanel(
+    state: Map<*, *>, command: UiCommand, open: (String) -> Unit, close: () -> Unit, stackModelField: Boolean = false,
+) {
     val doc = state.obj("document")
     val native = state.obj("native")
     val isNative = native.flag("enabled")
@@ -197,7 +202,11 @@ internal fun ContentPanel(state: Map<*, *>, command: UiCommand, open: (String) -
         val hasToggles = listOf("supportsParametersToggle", "supportsModelToggle", "supportsBrandToggle").any(::supports)
         if (hasModelPicker || editsCaption || hasToggles) EditorSettingsCard {
             if (editsModel) {
-                PanelTextField(model, { model = it.take(100) }, "型号", "content.model", enabled, placeholder = metadata.text("model"))
+                PanelTextField(
+                    model, { model = it.take(100) }, "型号", "content.model", enabled,
+                    modifier = if (stackModelField) Modifier.padding(8.dp) else Modifier,
+                    placeholder = metadata.text("model"), compact = stackModelField,
+                )
             }
             if (editsCaption) PanelTextField(caption, { caption = it }, "签名", "content.caption", enabled)
             if (supports("supportsParametersToggle")) SwitchPreference(
@@ -318,7 +327,8 @@ internal fun PanelTextField(
         singleLine = true,
         textStyle = style.copy(color = textColor, textAlign = alignment),
         cursorBrush = SolidColor(colors.primary),
-        modifier = modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = title }.onFocusChanged { focused = it.isFocused },
+        modifier = modifier.fillMaxWidth()
+            .testTag(tag).semantics { contentDescription = title }.onFocusChanged { focused = it.isFocused },
         decorationBox = { input ->
             val entry: @Composable () -> Unit = {
                 if (value.isEmpty() && placeholder.isNotEmpty()) Text(
@@ -333,7 +343,7 @@ internal fun PanelTextField(
                         .then(fieldSurface).padding(8.dp), verticalArrangement = Arrangement.Center,
                 ) {
                     Text(title, style = MiuixTheme.textStyles.footnote1, color = colors.onSurfaceVariantSummary)
-                    Box(Modifier.fillMaxWidth()) { entry() }
+                    Box(Modifier.fillMaxWidth().testTag("$tag.input")) { entry() }
                 }
             } else {
                 Row(
@@ -745,7 +755,7 @@ private fun ColorPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit) 
         TabRow(listOf("调色板", "精细选择"), tab, hapticSelection(tab) { tab = it }, Modifier.testTag("color.mode"), colors = glassTabColors())
         if (tab == 0) ColorPalette(color, hapticSelection(color) { color = it }, Modifier.fillMaxWidth().testTag("color.palette"))
         else ColorPicker(color, { color = it }, Modifier.fillMaxWidth().testTag("color.picker"))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton("白色", hapticClick(HapticFeedbackType.SegmentTick, color != Color.White) { color = Color.White }, Modifier.weight(1f).testTag("color.white"))
             TextButton("深黑", hapticClick(HapticFeedbackType.SegmentTick, color != Color(0xff181818)) { color = Color(0xff181818) }, Modifier.weight(1f).testTag("color.black"))
         }
@@ -769,4 +779,3 @@ private fun HistoryPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit
         }
     }
 }
-

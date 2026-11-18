@@ -17,11 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -51,6 +47,7 @@ internal fun SelectionActions(enabled: Boolean, hasSelection: Boolean, allSelect
     val watermark = onExport != null
     val subject = if (watermark) "水印" else "草稿"
     val prefix = if (watermark) "watermark" else "draft"
+    val shape = MiuixCornerShape(24.5.dp, navigationCornerKind(LocalDensity.current.fontScale))
     @Composable fun RowScope.Action(label: String, tag: String, icon: ImageVector, active: Boolean, selected: Boolean = false,
         feedback: HapticFeedbackType = HapticFeedbackType.ContextClick, click: () -> Unit) {
         val interaction = remember { MutableInteractionSource() }
@@ -69,19 +66,9 @@ internal fun SelectionActions(enabled: Boolean, hasSelection: Boolean, allSelect
             .copy(alpha = if (!active) .38f else if (held) .6f else 1f)
         val backdropColor = navigationOverlay(dark, pressed = held || !(active && (hovered || focused)),
             hovered = !held && active && (hovered || focused))
-        Box(Modifier.weight(1f).fillMaxHeight().drawWithCache {
-            val inset = navigationInset.dp.toPx()
-            val height = (size.height - inset * 2f).coerceAtLeast(1f)
-            val outline = MiuixCornerShape(24.5.dp).createOutline(Size(size.width, height), layoutDirection, this)
-            onDrawBehind {
-                val delta = 6.dp.toPx() * shrink
-                withTransform({
-                    translate(top = inset)
-                    scale((1f - delta / size.width.coerceAtLeast(1f)).coerceAtLeast(.5f),
-                        (1f - delta / height).coerceAtLeast(.5f), Offset(size.width / 2f, height / 2f))
-                }) { drawOutline(outline, backdropColor, alpha = fraction) }
-            }
-        }.testTag(tag).semantics {
+        Box(Modifier.weight(1f).fillMaxHeight()
+            .navigationPressFace(shape, backdropColor, inset = navigationInset.dp, progress = { shrink }, alpha = { fraction })
+            .testTag(tag).semantics {
             contentDescription = label
             if (tag == "$prefix.selection.all") stateDescription = if (allSelected) "已全选" else "未全选"
         }.clickable(enabled = active, role = Role.Button, interactionSource = interaction, indication = null,
