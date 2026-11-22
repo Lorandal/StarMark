@@ -92,7 +92,7 @@ internal fun ChromeAnchoredPopup(
             var geometry by remember { mutableStateOf(motion.geometry) }
             var material by remember { mutableFloatStateOf(0f) }
             var sourceMaterial by remember { mutableFloatStateOf(0f) }
-            LaunchedEffect(show, start, target, effects.reduceMotion) {
+            LaunchedEffect(show, start, target, effects.reduceMotion, effects.durationScale) {
                 if (contentHeight <= 0f) return@LaunchedEffect
                 val fade = if (source == null) launch {
                     shellAlpha.animateTo(if (show) 1f else 0f,
@@ -109,11 +109,8 @@ internal fun ChromeAnchoredPopup(
                     if (geometry.width > start.width + (target.width - start.width) * .1f) shellVisible = true
                 }
                 publish()
-                var previous = withFrameNanos { it }
-                while (motion.running && (show || source != null || fade?.isCompleted != true)) {
-                    val now = withFrameNanos { it }
-                    motion.step(((now - previous) / 1_000_000_000f).coerceAtMost(.064f))
-                    previous = now
+                runMotionFrames(effects.durationScale, { motion.running && (show || source != null || fade?.isCompleted != true) }) { seconds ->
+                    motion.step(seconds)
                     publish()
                 }
                 fade?.join()

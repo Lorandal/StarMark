@@ -1,6 +1,7 @@
 package dev.starmark.starmark.ui
 
 import android.graphics.Typeface
+import android.util.LruCache
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -89,40 +90,47 @@ private sealed interface FontPreviewState {
     data class Ready(val family: FontFamily, val weight: FontWeight, val style: FontStyle) : FontPreviewState
 }
 
+private val bundledFontPreviews = LruCache<String, FontPreviewState.Ready>(8)
+
 /** Never substitute the UI font and present it as the selected font's preview. */
 @Composable
 private fun FontFacePreview(font: Map<*, *>, enabled: Boolean) {
     val context = LocalContext.current
     val source = fontPreviewSource(font)
-    val preview by produceState<FontPreviewState>(FontPreviewState.Loading, context, source) {
-        value = FontPreviewState.Loading
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                val face = when (source) {
-                    is FontPreviewSource.Asset -> {
-                        // Confirm the Flutter asset exists; Typeface then reads that exact asset.
-                        context.assets.open(source.path).use { }
-                        Typeface.createFromAsset(context.assets, source.path)
-                    }
-                    is FontPreviewSource.PrivateFile -> {
-                        val file = File(context.filesDir, source.relativePath)
-                        require(file.isFile && file.length() in 12..(32L * 1024 * 1024))
-                        val digest = MessageDigest.getInstance("SHA-256")
-                        file.inputStream().use { stream ->
-                            val buffer = ByteArray(16 * 1024)
-                            while (true) {
-                                val read = stream.read(buffer)
-                                if (read < 0) break
-                                digest.update(buffer, 0, read)
-                            }
+    val preview by key(context, source) {
+        val assetPath = (source as? FontPreviewSource.Asset)?.path
+        val cached = remember { assetPath?.let(bundledFontPreviews::get) }
+        produceState<FontPreviewState>(cached ?: FontPreviewState.Loading) {
+            if (cached != null) return@produceState
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    val face = when (source) {
+                        is FontPreviewSource.Asset -> {
+                            // Confirm the Flutter asset exists; Typeface then reads that exact asset.
+                            context.assets.open(source.path).use { }
+                            Typeface.createFromAsset(context.assets, source.path)
                         }
-                        require(digest.digest().joinToString("") { "%02x".format(it) } == source.fingerprint)
-                        Typeface.createFromFile(file)
+                        is FontPreviewSource.PrivateFile -> {
+                            val file = File(context.filesDir, source.relativePath)
+                            require(file.isFile && file.length() in 12..(32L * 1024 * 1024))
+                            val digest = MessageDigest.getInstance("SHA-256")
+                            file.inputStream().use { stream ->
+                                val buffer = ByteArray(16 * 1024)
+                                while (true) {
+                                    val read = stream.read(buffer)
+                                    if (read < 0) break
+                                    digest.update(buffer, 0, read)
+                                }
+                            }
+                            require(digest.digest().joinToString("") { "%02x".format(it) } == source.fingerprint)
+                            Typeface.createFromFile(file)
+                        }
+                        null -> error("Font preview source unavailable")
                     }
-                    null -> error("Font preview source unavailable")
-                }
-                FontPreviewState.Ready(FontFamily(face), FontWeight(face.weight), if (face.isItalic) FontStyle.Italic else FontStyle.Normal)
-            }.getOrDefault(FontPreviewState.Unavailable)
+                    FontPreviewState.Ready(FontFamily(face), FontWeight(face.weight), if (face.isItalic) FontStyle.Italic else FontStyle.Normal)
+                        .also { if (assetPath != null) bundledFontPreviews.put(assetPath, it) }
+                }.getOrDefault(FontPreviewState.Unavailable)
+            }
         }
     }
     when (val loaded = preview) {

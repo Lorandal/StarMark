@@ -3,7 +3,7 @@ package dev.starmark.starmark.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -16,21 +16,29 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /** Production shell router: photo import retains its existing non-dismissible dialog. */
 @Composable
 internal fun ImportWorkflow(status: Map<*, *>, command: UiCommand) {
-    if (status.text("stage") == "watermarks") {
-        ChromeDialog(show = status.flag("active")) {
+    val active = status.flag("active")
+    var lastProgress by remember { mutableStateOf<Map<*, *>>(emptyMap<Any, Any>()) }
+    if (active) SideEffect { lastProgress = status }
+    val progress = if (active) status else lastProgress
+    if (progress.text("stage") == "watermarks") {
+        ChromeDialog(show = active, onDismissFinished = { lastProgress = emptyMap<Any, Any>() }) {
             Column(Modifier.fillMaxWidth().testTag("watermark.import.progress")
                 .semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OperationProgressContent("watermark.import.counts", "正在导入水印…",
-                    if (status.integer("total") > 0) "已处理 ${status.integer("completed")} / ${status.integer("total")} 款" else "正在检查水印集合…")
-                if (status.text("path").isNotBlank()) Text(status.text("path"))
+                    if (progress.integer("total") > 0) "已处理 ${progress.integer("completed")} / ${progress.integer("total")} 款" else "正在检查水印集合…")
+                if (progress.text("path").isNotBlank()) Text(progress.text("path"))
                 ChromeTextButton("取消导入", "watermark.import.cancel") { command.send("style.import.cancel") }
             }
         }
     } else {
         PhotoImportProgress(status)
     }
-    val result = status.obj("result")
-    ChromeDialog(show = !status.flag("active") && result.isNotEmpty(),
+    val incoming = status.obj("result")
+    var lastResult by remember { mutableStateOf<Map<*, *>>(emptyMap<Any, Any>()) }
+    val showResult = !active && incoming.isNotEmpty()
+    if (showResult) SideEffect { lastResult = incoming }
+    val result = if (showResult) incoming else lastResult
+    ChromeDialog(show = showResult, onDismissFinished = { lastResult = emptyMap<Any, Any>() },
         onDismissRequest = { command.send("style.import.dismiss") }) {
         Column(Modifier.fillMaxWidth().testTag("watermark.import.result"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (result.flag("cancelled")) "水印导入已取消" else if (result.flag("aborted")) "水印导入已停止" else "水印导入结果",

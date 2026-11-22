@@ -6,6 +6,8 @@ import dev.starmark.starmark.ui.g2.SwitchPreference
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.animation.AnimatedVisibility
@@ -13,8 +15,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -33,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -62,7 +67,7 @@ import dev.starmark.starmark.xiaomi.XiaomiFilterBlur
 import java.util.zip.GZIPInputStream
 
 @Composable
-internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues(), bannerPage: MutableIntState = rememberSaveable { mutableIntStateOf(1) }, selectionInChrome: Boolean = false) {
+internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues(), bannerPage: MutableIntState = rememberSaveable { mutableIntStateOf(1) }, selectionInChrome: Boolean = false, landscapeWorkspace: Boolean = currentEditorWindow().landscapeWorkspace) {
     val busy = state.flag("busy")
     val drafts = state.rows("drafts")
     val selection = state.obj("draftSelection")
@@ -74,7 +79,7 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
     val railInsets = rootRailListInsets(list, padding.calculateBottomPadding(), drafts.size)
     LazyColumn(Modifier.fillMaxSize().testTag("screen.home"), state = list,
         contentPadding = padding.withChromeInsets(railInsets), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item(key = "home-banners") { HomeBannerCarousel(state, command, bannerPage) }
+        item(key = "home-banners") { HomeBannerCarousel(state, command, bannerPage, landscapeWorkspace) }
         item {
             Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), cornerRadius = 20.dp) {
                 ArrowPreference("水印样式", modifier = Modifier.testTag("home.styles"), onClick = { command.send("navigate", "page" to "styles") }, enabled = !busy)
@@ -124,37 +129,41 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
             }
         }
     }
-    deletingIds?.let { ids ->
-        DraftDeleteDialog(ids, busy, onDismiss = { deletingIds = null }) {
-            command.send("draft.delete", "ids" to ids, "confirmed" to true)
-            deletingIds = null
-        }
+    DraftDeleteDialog(deletingIds, busy, onDismiss = { deletingIds = null }) { ids ->
+        deletingIds = null
+        command.send("draft.delete", "ids" to ids, "confirmed" to true)
     }
 }
 
 @Composable
-internal fun DraftDeleteDialog(ids: List<String>, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+internal fun DraftDeleteDialog(ids: List<String>?, busy: Boolean, onDismiss: () -> Unit, onConfirm: (List<String>) -> Unit) {
     LibraryDeleteDialog(ids, busy, "草稿", "份草稿，原始照片将保留。", "draft", onDismiss,
         title = "确认删除草稿", onConfirm = onConfirm)
 }
 
 @Composable
-internal fun LibraryDeleteDialog(ids: List<String>, busy: Boolean, subject: String, summarySuffix: String,
+internal fun LibraryDeleteDialog(ids: List<String>?, busy: Boolean, subject: String, summarySuffix: String,
     tagPrefix: String, onDismiss: () -> Unit,
-    title: String = "确认删除$subject？", summary: String = "将删除选中的 ${ids.size} $summarySuffix",
-    onConfirm: () -> Unit) {
+    title: String = "确认删除$subject？", summary: String? = null,
+    onConfirm: (List<String>) -> Unit) {
+    var count by remember { mutableIntStateOf(0) }
+    var remaining by remember { mutableIntStateOf(3) }
     val openedAt = remember(ids) { System.nanoTime() }
-    var remaining by remember(ids) { mutableIntStateOf(3) }
     LaunchedEffect(ids) {
+        if (ids == null) return@LaunchedEffect
+        count = ids.size
+        remaining = 3
         while (remaining > 0) {
             delay(100)
             remaining = draftDeleteRemainingSeconds((System.nanoTime() - openedAt) / 1_000_000L)
         }
     }
-    ChromeDialog(show = true, title = title, summary = summary, onDismissRequest = onDismiss) {
+    ChromeDialog(show = ids != null, title = title, summary = summary ?: "将删除选中的 ${ids?.size ?: count} $summarySuffix", onDismissRequest = onDismiss) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton("取消", hapticClick(onClick = onDismiss), Modifier.weight(1f).testTag("$tagPrefix.delete.cancel"))
-            TextButton(if (remaining > 0) "确认（$remaining）" else "确认", hapticClick(feedbackEnabled = remaining == 0 && !busy) { if (remaining == 0 && !busy) onConfirm() },
+            TextButton(if (remaining > 0) "确认（$remaining）" else "确认", hapticClick(feedbackEnabled = remaining == 0 && !busy) {
+                if (ids != null && !busy && draftDeleteRemainingSeconds((System.nanoTime() - openedAt) / 1_000_000L) == 0) onConfirm(ids)
+            },
                 Modifier.weight(1f).testTag("$tagPrefix.delete.confirm"), enabled = remaining == 0 && !busy,
                 colors = ButtonDefaults.textButtonColorsPrimary(color = MiuixTheme.colorScheme.error, textColor = Color.White,
                     disabledColor = MiuixTheme.colorScheme.disabledSecondaryVariant, disabledTextColor = MiuixTheme.colorScheme.disabledOnSecondaryVariant))
@@ -236,31 +245,48 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
     val canRemove = !busy && count > 0
     val canSelectAll = !busy && photos.isNotEmpty()
     val allSelected = photos.isNotEmpty() && count == photos.size
-    val selectedStyle = styleRows(state).firstOrNull { it.flag("selected") }
+    val defaultPackage = batch.text("defaultPackage")
+    val selectedStyle = styleRows(state).firstOrNull { if (defaultPackage.isBlank()) it.flag("selected") else it.text("id") == defaultPackage }
     val watermarkEnabled = state.obj("document").flag("enabled", true)
-    val gridGap = 12.dp
+    val gridGap = EditorSettingsDefaults.GroupSpacing
+    val contentInset = PaddingValues(EditorSettingsDefaults.PageInset).withChromeInsets(chromeInsets)
+    val cardPadding = PaddingValues(EditorSettingsDefaults.RowInset)
     val fullRow: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val columns = (maxWidth.value / 128f).toInt().coerceIn(3, 8)
+        val direction = LocalLayoutDirection.current
+        val innerWidth = maxWidth - contentInset.calculateLeftPadding(direction) - contentInset.calculateRightPadding(direction)
+        val usualColumns = (maxWidth.value / 128f).toInt().coerceIn(3, 8)
+        val columns = minOf(usualColumns, ((innerWidth + gridGap) / (EditorSettingsDefaults.TouchTarget * 2 + gridGap)).toInt().coerceAtLeast(1))
         LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.fillMaxSize().testTag("screen.batch"),
-            contentPadding = PaddingValues(12.dp).withChromeInsets(chromeInsets),
+            contentPadding = contentInset,
             verticalArrangement = Arrangement.spacedBy(gridGap), horizontalArrangement = Arrangement.spacedBy(gridGap)) {
             item(key = "summary", span = fullRow) {
-                Card(Modifier.fillMaxWidth().testTag("batch.summary"), cornerRadius = 24.dp, insideMargin = PaddingValues(16.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                EditorSettingsCard(Modifier.testTag("batch.summary"), insideMargin = cardPadding) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = EditorSettingsDefaults.RowMinHeight),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gridGap)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("已选 $count 张", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                            SupportingText("共 ${photos.size} 张照片")
+                            Text("已选 $count 张", fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                            Text("共 ${photos.size} 张照片", fontSize = 14.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                         }
-                        TextButton("添加照片", hapticClick { command.send("batch.add") }, enabled = !busy, modifier = Modifier.testTag("batch.add"))
+                        TextButton("添加照片", hapticClick { command.send("batch.add") }, enabled = !busy,
+                            minHeight = EditorSettingsDefaults.TouchTarget, modifier = Modifier.testTag("batch.add"))
+                    }
+                    if (photos.isNotEmpty()) {
+                        val resume = photos.firstOrNull { it.text("id") == batch.text("currentId") } ?: photos.first()
+                        Spacer(Modifier.height(gridGap))
+                        MainButton(if (batch.text("currentId").isEmpty()) "逐张编辑" else "继续逐张编辑", "batch.resume", !busy,
+                            Modifier.heightIn(min = EditorSettingsDefaults.TouchTarget), glassMaterial = true) {
+                            command.send("batch.edit", "id" to resume.text("id"))
+                        }
                     }
                 }
             }
             item(key = "watermarkStyle", span = fullRow) {
-                Card(Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
-                    ArrowPreference("水印样式",
+                EditorSettingsCard {
+                    ArrowPreference(if (photos.isEmpty()) "水印样式" else "统一选中照片的水印",
                         summary = if (!watermarkEnabled) "无水印" else selectedStyle?.text("title") ?: "当前编辑样式",
-                        enabled = !busy, modifier = Modifier.testTag("batch.styles"),
+                        enabled = !busy, modifier = Modifier.heightIn(min = EditorSettingsDefaults.RowMinHeight).testTag("batch.styles"),
+                        insideMargin = EditorSettingsDefaults.RowPadding,
                         onClick = hapticClick { command.send("navigate", "page" to "watermarks", "returnPage" to "batch") },
                         endActions = {
                             if (watermarkEnabled && selectedStyle != null) PhotoThumbnail(selectedStyle.text("image"),
@@ -269,8 +295,8 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                 }
             }
             if (running || completed > 0 || batch.flag("cancelled")) item(key = "progress", span = fullRow) {
-                Card(Modifier.fillMaxWidth().testTag("batch.progress"), cornerRadius = 24.dp, insideMargin = PaddingValues(16.dp)) {
-                    Text(if (running) "正在导出 $completed / $total" else if (batch.flag("cancelled")) "已停止后续导出" else "批量导出完成", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                EditorSettingsCard(Modifier.testTag("batch.progress"), insideMargin = cardPadding) {
+                    Text(if (running) "正在导出 $completed / $total" else if (batch.flag("cancelled")) "已停止后续导出" else "批量导出完成", fontSize = 17.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(12.dp))
                     LinearProgressIndicator(progress = if (total > 0) (completed.toFloat() / total).coerceIn(0f, 1f) else 0f, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
@@ -298,23 +324,32 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                             if (!canRemove) disabled()
                         }) {
                         Icon(MiuixIcons.Delete, null, Modifier.size(22.dp),
-                            tint = MiuixTheme.colorScheme.onSurface.copy(alpha = if (canRemove) 1f else .3f))
+                            tint = if (canRemove) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
                     }
                 }
             }
             items(photos, key = { "photo.${it.text("id")}" }) { photo ->
                 val selected = photo.flag("selected")
-                Surface(
-                    onClick = hapticClick(toggleHaptic(selected)) { command.send("batch.toggle", "id" to photo.text("id")) }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).testTag("batch.photo.${photo.text("id")}"),
-                    shape = MiuixCornerShape(12.dp),
-                    color = MiuixTheme.colorScheme.surfaceContainer,
-                    border = if (selected) BorderStroke(2.dp, MiuixTheme.colorScheme.primary) else null,
-                ) {
-                    Box(Modifier.fillMaxSize()) {
-                        PhotoThumbnail(photo.text("image"), Modifier.fillMaxSize(), photo.text("title", "照片"), cornerRadius = 12.dp)
-                        Checkbox(if (selected) ToggleableState.On else ToggleableState.Off, { command.send("batch.toggle", "id" to photo.text("id")) }, enabled = !busy,
-                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).testTag("batch.item.${photo.text("id")}"))
+                val id = photo.text("id")
+                val shape = MiuixCornerShape(PhotoGridRadius)
+                val interaction = remember { MutableInteractionSource() }
+                val toggle = hapticClick(toggleHaptic(selected)) { command.send("batch.toggle", "id" to id) }
+                Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+                    Box(Modifier.matchParentSize().stockPress(interaction, StockPressKind.Watermark, !busy)
+                        .clip(shape).then(if (selected) Modifier.border(2.dp, MiuixTheme.colorScheme.primary, shape) else Modifier)
+                        .clickable(interaction, indication = null, enabled = !busy, role = Role.Button, onClickLabel = "编辑照片",
+                            onClick = hapticClick { command.send("batch.edit", "id" to id) }).testTag("batch.photo.$id")) {
+                        PhotoThumbnail(photo.text("image"), Modifier.fillMaxSize(), photo.text("title", "照片"), cornerRadius = PhotoGridRadius)
+                        val status = photo.text("result").takeUnless { it == "saving" || it.isBlank() } ?: if (photo.flag("adjusted")) "已调整" else ""
+                        if (status.isNotEmpty()) Text(status, Modifier.align(Alignment.BottomStart).padding(4.dp)
+                            .background(MiuixTheme.colorScheme.surfaceContainer, MiuixCornerShape(6.dp)).padding(horizontal = 4.dp, vertical = 2.dp),
+                            color = MiuixTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Box(Modifier.align(Alignment.TopEnd).size(EditorSettingsDefaults.TouchTarget)
+                        .toggleable(selected, enabled = !busy, role = Role.Checkbox, onValueChange = { toggle() })
+                        .semantics { contentDescription = "选择导出，${photo.text("title", "照片")}" }.testTag("batch.item.$id"),
+                        contentAlignment = Alignment.Center) {
+                        Checkbox(if (selected) ToggleableState.On else ToggleableState.Off, onClick = null, enabled = !busy)
                     }
                 }
             }
@@ -324,10 +359,12 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                 }
             }
             item(key = "export", span = fullRow) {
-                Card(Modifier.fillMaxWidth(), cornerRadius = 24.dp, insideMargin = PaddingValues(16.dp)) {
-                    Text("使用当前水印", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                EditorSettingsCard(insideMargin = cardPadding) {
+                    Text("按各自的水印导出", fontSize = 17.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(12.dp))
-                    MainButton("导出选中照片（$count 张）", "batch.export", !busy && count > 0) { command.send("batch.export") }
+                    MainButton("导出选中照片（$count 张）", "batch.export", !busy && count > 0,
+                        Modifier.heightIn(min = EditorSettingsDefaults.TouchTarget), glassMaterial = true) { command.send("batch.export") }
+                    if (photos.any { it.text("result") == "失败" }) TextButton("重试失败照片", hapticClick { command.send("batch.export", "failedOnly" to true) }, enabled = !busy)
                 }
             }
         }
@@ -395,21 +432,40 @@ internal fun SettingsPage(state: Map<*, *>, command: UiCommand, chromeInsets: Pa
             }
         }
     }
-    if (askDetails) ChromeDialog(show = true, title = "是否查看开源代码许可和组件详情", onDismissRequest = { askDetails = false }) {
+    ChromeDialog(show = askDetails, title = "是否查看开源代码许可和组件详情", onDismissRequest = { askDetails = false }) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton("是", hapticClick { showDetails = true; askDetails = false }, Modifier.weight(1f).testTag("settings.details.yes"))
             TextButton("否", hapticClick { showDetails = false; askDetails = false }, Modifier.weight(1f).testTag("settings.details.no"), colors = ButtonDefaults.textButtonColorsPrimary())
         }
     }
-    ChromeDialog(show = appUpdate.flag("available"), modifier = Modifier.testTag("settings.update.dialog"),
-        title = "发现新版本", summary = "检测到最新版本（${appUpdate.text("versionName")}），是否更新？",
+}
+
+@Composable
+internal fun AppUpdateDialog(appUpdate: Map<*, *>, ready: Boolean, command: UiCommand) {
+    val available = appUpdate.flag("available")
+    var lastOffer by remember { mutableStateOf(appUpdate) }
+    if (available) SideEffect { lastOffer = appUpdate }
+    val offer = if (available) appUpdate else lastOffer
+    ChromeDialog(show = ready && available, modifier = Modifier.testTag("settings.update.dialog"),
+        title = "发现新版本", summary = "检测到最新版本（${offer.text("versionName")}），是否更新？",
         onDismissRequest = { command.send("settings.dismissUpdate") }) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton("取消", hapticClick { command.send("settings.dismissUpdate") },
-                Modifier.weight(1f).testTag("settings.update.cancel"))
-            TextButton("确认", hapticClick(feedbackEnabled = !appUpdate.flag("opening")) { command.send("settings.openUpdate") },
-                Modifier.weight(1f).testTag("settings.update.confirm"), enabled = !appUpdate.flag("opening"),
-                colors = ButtonDefaults.textButtonColorsPrimary())
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val notes = offer.text("releaseNotes")
+            if (notes.isNotBlank()) {
+                Text("更新日志", style = MiuixTheme.textStyles.body1, fontWeight = FontWeight.Medium)
+                key(offer.text("versionName")) {
+                    Text(notes, modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
+                        .heightIn(max = 240.dp).verticalScroll(rememberScrollState()).testTag("settings.update.notes"),
+                        style = MiuixTheme.textStyles.body2)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextButton("取消", hapticClick { command.send("settings.dismissUpdate") },
+                    Modifier.weight(1f).testTag("settings.update.cancel"))
+                TextButton("确认", hapticClick(feedbackEnabled = !offer.flag("opening")) { command.send("settings.openUpdate") },
+                    Modifier.weight(1f).testTag("settings.update.confirm"), enabled = !offer.flag("opening"),
+                    colors = ButtonDefaults.textButtonColorsPrimary())
+            }
         }
     }
 }

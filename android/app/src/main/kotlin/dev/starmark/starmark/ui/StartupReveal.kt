@@ -19,13 +19,14 @@ import dev.starmark.starmark.ui.g2.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-internal val LocalStartupProgress = staticCompositionLocalOf { 1f }
+internal val LocalStartupProgress = staticCompositionLocalOf<State<Float>> { mutableFloatStateOf(1f) }
 
 /** Initial engine/catalog preparation owns the entire shell, including chrome. */
 @Composable
 internal fun StartupReveal(ready: Boolean, message: String, content: @Composable () -> Unit) {
     var mounted by remember { mutableStateOf(false) }
     val progress = remember { Animatable(0f) }
+    val revealing by remember { derivedStateOf { progress.value < 1f } }
     val reduced = LocalStarMarkEffects.current.reduceMotion
     LaunchedEffect(ready, reduced) {
         if (ready && !mounted) mounted = true
@@ -38,11 +39,11 @@ internal fun StartupReveal(ready: Boolean, message: String, content: @Composable
     }
     BackHandler(!mounted) { /* Startup is not a navigable page. */ }
     Box(Modifier.fillMaxSize()) {
-        if (mounted) CompositionLocalProvider(LocalStartupProgress provides progress.value) {
+        if (mounted) CompositionLocalProvider(LocalStartupProgress provides progress.asState()) {
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = progress.value }
-                .then(if (progress.value < 1f) Modifier.clearAndSetSemantics {} else Modifier)) { content() }
+                .then(if (revealing) Modifier.clearAndSetSemantics {} else Modifier)) { content() }
         }
-        if (progress.value < 1f) {
+        if (revealing) {
             Box(Modifier.fillMaxSize().testTag("screen.loading")
                 .graphicsLayer { alpha = (1f - progress.value * 2f).coerceAtLeast(0f) }
                 .background(MiuixTheme.colorScheme.background)

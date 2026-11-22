@@ -3,7 +3,8 @@
 
 package dev.starmark.starmark.ui.g2
 
-// Adapted from Miuix 0.9.4: only track geometry changes; interaction and accessibility stay upstream.
+// Adapted from Miuix 0.9.4 for StarMark geometry and reduced motion.
+import dev.starmark.starmark.ui.LocalStarMarkEffects
 import dev.starmark.starmark.ui.MiuixCornerShape
 import dev.starmark.starmark.ui.drawG2Rect
 import androidx.compose.ui.graphics.Path
@@ -22,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,8 +62,8 @@ fun LinearProgressIndicator(
     val currentForegroundColor = colors.foregroundColor(true)
 
     if (progress == null) {
-        val transition = rememberInfiniteTransition()
-        val animatedValue by transition.animateFloat(
+        val transition = if (LocalStarMarkEffects.current.reduceMotion) null else rememberInfiniteTransition()
+        val animatedValue = transition?.animateFloat(
             initialValue = 0f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
@@ -86,7 +86,7 @@ fun LinearProgressIndicator(
             )
 
             for (i in 0 until 3) {
-                drawIndeterminateSegment(trackPath, animatedValue, i, currentForegroundColor)
+                drawIndeterminateSegment(trackPath, animatedValue?.value ?: .5f, i, currentForegroundColor)
             }
         }
     } else {
@@ -142,9 +142,9 @@ fun CircularProgressIndicator(
     val currentForegroundColor = colors.foregroundColor(true)
 
     if (progress == null) {
-        val transition = rememberInfiniteTransition()
+        val transition = if (LocalStarMarkEffects.current.reduceMotion) null else rememberInfiniteTransition()
 
-        val rotationAnim by transition.animateFloat(
+        val rotationAnim = transition?.animateFloat(
             initialValue = 0f,
             targetValue = 360f,
             animationSpec = infiniteRepeatable(
@@ -152,7 +152,7 @@ fun CircularProgressIndicator(
                 repeatMode = RepeatMode.Restart,
             ),
         )
-        val sweepAnim by transition.animateFloat(
+        val sweepAnim = transition?.animateFloat(
             initialValue = 30f,
             targetValue = 120f,
             animationSpec = infiniteRepeatable(
@@ -170,7 +170,7 @@ fun CircularProgressIndicator(
                 .semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate }
                 .size(size),
         ) {
-            drawProgressRing(currentBackgroundColor, currentForegroundColor, strokeWidth, rotationAnim, sweepAnim)
+            drawProgressRing(currentBackgroundColor, currentForegroundColor, strokeWidth, rotationAnim?.value ?: -90f, sweepAnim?.value ?: 90f)
         }
     } else {
         val progressValue = progress.coerceIn(0f, 1f)
@@ -205,8 +205,8 @@ fun InfiniteProgressIndicator(
     strokeWidth: Dp = ProgressIndicatorDefaults.DefaultInfiniteProgressIndicatorStrokeWidth,
     orbitingDotSize: Dp = ProgressIndicatorDefaults.DefaultInfiniteProgressIndicatorOrbitingDotSize,
 ) {
-    val transition = rememberInfiniteTransition()
-    val rotation by transition.animateFloat(
+    val transition = if (LocalStarMarkEffects.current.reduceMotion) null else rememberInfiniteTransition()
+    val rotation = transition?.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
@@ -232,7 +232,7 @@ fun InfiniteProgressIndicator(
         )
 
         val orbitRadius = (radius - 2 * orbitingDotSizePx).coerceAtLeast(0f)
-        val angle = rotation * (PI / 180.0).toFloat()
+        val angle = (rotation?.value ?: -90f) * (PI / 180.0).toFloat()
         val dotCenter = center + Offset(
             x = orbitRadius * cos(angle),
             y = orbitRadius * sin(angle),

@@ -290,6 +290,7 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
     private var passWindow = false
     private var role = ChromeMaterialRole.Standard
     private var strength = 1f
+    private var showRim = true
     private var invocationFailed = false
     private var appliedNative = false
     private var appliedRadius = -1
@@ -297,6 +298,7 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
     private var appliedDark: Boolean? = null
     private var appliedRole = ChromeMaterialRole.Standard
     private var appliedStrength = -1f
+    private var appliedRim = true
 
     init {
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
@@ -321,17 +323,18 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
     }
 
     fun configure(dark: Boolean, enabled: Boolean, radius: Float, corners: Float, passWindow: Boolean, shadow: Float,
-        role: ChromeMaterialRole, strength: Float, cornerKind: CornerKind) {
+        role: ChromeMaterialRole, strength: Float, cornerKind: CornerKind, showRim: Boolean = true) {
         val nextRadius = miuiBlurRadius(radius)
         if (appliedNative && appliedRole != role) clearNative()
         val outlineChanged = cornerRadius != corners || this.cornerKind != cornerKind
-        val materialChanged = this.dark != dark || userEnabled != enabled || blurRadius != nextRadius || this.passWindow != passWindow || this.role != role || this.strength != strength
+        val materialChanged = this.dark != dark || userEnabled != enabled || blurRadius != nextRadius || this.passWindow != passWindow || this.role != role || this.strength != strength || this.showRim != showRim
         this.dark = dark
         userEnabled = enabled
         blurRadius = nextRadius
         this.passWindow = passWindow
         this.role = role
         this.strength = strength
+        this.showRim = showRim
         // setMiShadow owns elevation (64 px for Regular). Resetting it on every
         // recomposition erased the cached shadow without reapplying the material.
         val api = SystemChromeApi.lookup(View::class.java)
@@ -422,10 +425,10 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
                 return
             }
             val success = runCatching {
-                if (!appliedNative || appliedRadius != blurRadius || appliedPassWindow != passWindow || appliedDark != dark || appliedRole != role || appliedStrength != strength) {
+                if (!appliedNative || appliedRadius != blurRadius || appliedPassWindow != passWindow || appliedDark != dark || appliedRole != role || appliedStrength != strength || appliedRim != showRim) {
                     check(SystemChromeApi.lookup(View::class.java).apply(this, materialView,
                         blurRadius, resources.displayMetrics.density, dark, role, strength,
-                        tryGlassOptics = MiuiMaterialCapability.glassOpticsEligible))
+                        tryGlassOptics = MiuiMaterialCapability.glassOpticsEligible, showRim = showRim))
                 }
             }.isSuccess
             if (success) {
@@ -435,6 +438,7 @@ private class MiuiBackdropView(context: Context, private val onWindowFallback: (
                 appliedDark = dark
                 appliedRole = role
                 appliedStrength = strength
+                appliedRim = showRim
                 // The reference's color blend sequence is the material; a second translucent
                 // drawable would flatten its contrast and tint both themes a second time.
                 materialView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -470,6 +474,7 @@ internal fun MiuiBlurSurface(
     role: ChromeMaterialRole = ChromeMaterialRole.Standard,
     strength: Float = 1f,
     cornerKind: CornerKind = CornerKind.Fixed,
+    showRim: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val dark = MiuixTheme.colorScheme.background.luminance() < .5f
@@ -477,12 +482,12 @@ internal fun MiuiBlurSurface(
     var windowFallback by remember(passWindow, effects.mode, role) { mutableStateOf(false) }
     if (effects.systemGlass && windowFallback) {
         CompositionLocalProvider(LocalStarMarkEffects provides effects.copy(mode = GlassMode.Frosted)) {
-            ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, cornerKind, content)
+            ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, cornerKind, showRim, content)
         }
         return
     }
     if (!effects.systemGlass) {
-        ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, cornerKind, content)
+        ChromeSurface(modifier, cornerRadius, shadowElevation, role, strength, cornerKind, showRim, content)
         return
     }
     val density = LocalDensity.current
@@ -496,7 +501,7 @@ internal fun MiuiBlurSurface(
             AndroidView(
                 factory = { MiuiBackdropView(it) { windowFallback = true } },
                 modifier = Modifier.matchParentSize(),
-                update = { it.configure(dark, effects.systemGlass, radiusPx, cornersPx, passWindow, shadowPx, role, strength, cornerKind) },
+                update = { it.configure(dark, effects.systemGlass, radiusPx, cornersPx, passWindow, shadowPx, role, strength, cornerKind, showRim) },
             )
             content()
         }

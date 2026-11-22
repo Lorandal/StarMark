@@ -610,9 +610,15 @@ class EditorController extends ChangeNotifier {
   Future<void> initializeTemplateFrom(
     EditorController source,
     EditDocument design,
+  ) => initializePhotoSessionFrom(source, PhotoAsset.demo, EditHistory(design));
+
+  Future<void> initializePhotoSessionFrom(
+    EditorController source,
+    PhotoAsset photo,
+    EditHistory edits,
   ) async {
     if (writesDrafts || remembersDesign || source._disposed || source.loading) {
-      throw StateError('模板编辑器必须使用已就绪的独立会话');
+      throw StateError('照片编辑器必须使用已就绪的独立会话');
     }
     _factoryCatalog = source._factoryCatalog;
     presets = List.of(source.presets);
@@ -626,7 +632,11 @@ class EditorController extends ChangeNotifier {
     _markAssets = source._markAssets?.retain();
     _fontFamilies.addAll(source._fontFamilies);
     _fontCapHeights.addAll(source._fontCapHeights);
-    await setAsset(PhotoAsset.demo, restored: EditHistory(design), save: false);
+    useXiaomiImageBlur = source.useXiaomiImageBlur;
+    useXiaomiGlassWatermark = source.useXiaomiGlassWatermark;
+    staticPhotoExport = source.staticPhotoExport;
+    autoRemoveWatermark = source.autoRemoveWatermark;
+    await setAsset(photo, restored: edits, save: false);
   }
 
   Future<void> initialize() async {

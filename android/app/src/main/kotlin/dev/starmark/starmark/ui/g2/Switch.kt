@@ -3,7 +3,8 @@
 
 package dev.starmark.starmark.ui.g2
 
-// Adapted from Miuix 0.9.4: only track geometry changes; interaction and accessibility stay upstream.
+// Adapted from Miuix 0.9.4 for StarMark's track geometry and motion.
+import dev.starmark.starmark.ui.LocalStarMarkEffects
 import dev.starmark.starmark.ui.MiuixCornerShape
 import dev.starmark.starmark.ui.drawG2Track
 import dev.starmark.starmark.ui.drawG2Rect
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -45,6 +47,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
@@ -53,6 +57,7 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
@@ -76,6 +81,8 @@ fun Switch(
     enabled: Boolean = true,
 ) {
     val currentOnCheckedChange by rememberUpdatedState(onCheckedChange)
+    val density = LocalDensity.current
+    val reduced = LocalStarMarkEffects.current.reduceMotion
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isDragged by interactionSource.collectIsDraggedAsState()
@@ -93,29 +100,31 @@ fun Switch(
     val thumbScaleSpringSpec = remember { spring<Float>(dampingRatio = 0.6f, stiffness = 987f) }
 
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    val thumbPosition = (if (checked) 25.dp else 4.dp) + dragOffset.dp
     val thumbOffsetState = animateDpAsState(
-        targetValue = (if (checked) 25.dp else 4.dp) + dragOffset.dp,
-        animationSpec = thumbOffsetSpringSpec,
+        targetValue = thumbPosition,
+        animationSpec = if (isDragged || reduced) snap() else thumbOffsetSpringSpec,
     )
 
     val thumbScaleState = animateFloatAsState(
-        targetValue = if (!enabled) {
+        targetValue = if (!enabled || reduced) {
             1f
         } else if (isPressed || isDragged || isHovered) {
             1.127f
         } else {
             1f
         },
-        animationSpec = thumbScaleSpringSpec,
+        animationSpec = if (reduced) snap() else thumbScaleSpringSpec,
     )
 
     val thumbColorState = animateColorAsState(
         if (checked) colors.checkedThumbColor(enabled) else colors.uncheckedThumbColor(enabled),
+        animationSpec = if (reduced) snap() else spring(),
     )
 
     val backgroundColorState = animateColorAsState(
         if (checked) colors.checkedTrackColor(enabled) else colors.uncheckedTrackColor(enabled),
-        animationSpec = spring(dampingRatio = 0.99f, stiffness = 438.6f),
+        animationSpec = if (reduced) snap() else spring(dampingRatio = 0.99f, stiffness = 438.6f),
     )
 
     val hasCallback = onCheckedChange != null
@@ -161,7 +170,7 @@ fun Switch(
                 .size(20.dp)
                 .align(Alignment.CenterStart)
                 .offset {
-                    IntOffset(thumbOffsetState.value.roundToPx(), 0)
+                    IntOffset((if (isDragged || reduced) thumbPosition else thumbOffsetState.value).roundToPx(), 0)
                 }
                 .graphicsLayer {
                     scaleX = thumbScaleState.value
@@ -174,8 +183,9 @@ fun Switch(
                     if (enabled) {
                         Modifier.draggable(
                             orientation = Orientation.Horizontal,
+                            reverseDirection = LocalLayoutDirection.current == LayoutDirection.Rtl,
                             state = rememberDraggableState { dragAmount ->
-                                rawDragOffset += dragAmount / 2f
+                                rawDragOffset += with(density) { dragAmount.toDp().value }
                                 dragOffset = if (checked) {
                                     rawDragOffset.coerceIn(-21f, 0f)
                                 } else {

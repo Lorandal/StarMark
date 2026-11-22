@@ -80,13 +80,13 @@ internal fun nativeStyleChoicesAvailable(native: Map<*, *>, glassSupported: Bool
 /** Persist pending input only while its source document field is unchanged.
  * rememberSaveable inputs alone cannot validate state restored after a route leaves. */
 @Composable
-internal fun <T : Any> rememberDocumentField(source: T): MutableState<T> = key("bound-document-field-v1") {
+internal fun <T : Any> rememberDocumentField(source: T, initial: T = source): MutableState<T> = key("bound-document-field-v1") {
     @Suppress("UNCHECKED_CAST")
     val saver = listSaver<MutableState<T>, Any>(
         save = { listOf(source, it.value) },
         restore = { saved -> mutableStateOf(if (saved.size == 2 && saved[0] == source) saved[1] as T else source) },
     )
-    rememberSaveable(source, saver = saver) { mutableStateOf(source) }
+    rememberSaveable(source, saver = saver) { mutableStateOf(initial) }
 }
 
 @Composable
@@ -131,12 +131,23 @@ internal fun ContentPanel(
     val editsParameters = !template && supports("supportsParameters")
     val editsCaption = supports("supportsCaption")
     val editsText = editsCaption || editsModel || editsParameters
-    var caption by rememberDocumentField(doc.text("caption"))
-    var model by rememberDocumentField(doc.text("modelOverride"))
-    var focal by rememberDocumentField(exif.text("focal"))
-    var aperture by rememberDocumentField(exif.text("aperture"))
-    var speed by rememberDocumentField(exif.text("speed"))
-    var iso by rememberDocumentField(exif.text("iso"))
+    val batch = state.obj("batch")
+    val batchEditing = batch.flag("active") && !template
+    val pending = if (batchEditing) batch.obj("pendingContent") else emptyMap<Any, Any>()
+    val sources = mapOf("caption" to doc.text("caption"), "modelOverride" to doc.text("modelOverride"),
+        "focal" to exif.text("focal"), "aperture" to exif.text("aperture"), "speed" to exif.text("speed"), "iso" to exif.text("iso"))
+    @Composable fun field(key: String) = rememberDocumentField(sources.getValue(key), pending.text(key, sources.getValue(key)))
+    var caption by field("caption")
+    var model by field("modelOverride")
+    var focal by field("focal")
+    var aperture by field("aperture")
+    var speed by field("speed")
+    var iso by field("iso")
+    fun stageContent() {
+        if (!batchEditing) return
+        val fields = mapOf("caption" to caption, "modelOverride" to model, "focal" to focal, "aperture" to aperture, "speed" to speed, "iso" to iso)
+        command.send("batch.stageContent", "id" to state.obj("photo").text("id"), "fields" to fields.filter { (key, value) -> value != sources[key] })
+    }
     val regions = listOf("model", "parameters").filter { state.obj("regions").flag(it) }
     val mixFields = if (isNative) native.rows("mixFields") else emptyList()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(EditorSettingsDefaults.GroupSpacing)) {
@@ -181,19 +192,19 @@ internal fun ContentPanel(
             val fields = native.obj("parameterFields")
             ParameterFieldGrid { cell ->
                 PanelTextField(
-                    focal, { focal = it.take(32) }, "焦距", "content.focal", enabled && (!isNative || fields.flag("focal")), cell,
+                    focal, { focal = it.take(32); stageContent() }, "焦距", "content.focal", enabled && (!isNative || fields.flag("focal")), cell,
                     placeholder = state.obj("photo").text("displayFocal", originalValue("focal")).removeSuffix(".0"), compact = true,
                 )
                 PanelTextField(
-                    aperture, { aperture = it.take(32) }, "光圈", "content.aperture", enabled && (!isNative || fields.flag("aperture")), cell,
+                    aperture, { aperture = it.take(32); stageContent() }, "光圈", "content.aperture", enabled && (!isNative || fields.flag("aperture")), cell,
                     placeholder = originalValue("aperture"), compact = true,
                 )
                 PanelTextField(
-                    speed, { speed = it.take(32) }, "快门", "content.speed", enabled && (!isNative || fields.flag("speed")), cell,
+                    speed, { speed = it.take(32); stageContent() }, "快门", "content.speed", enabled && (!isNative || fields.flag("speed")), cell,
                     placeholder = shutter, compact = true,
                 )
                 PanelTextField(
-                    iso, { iso = it.take(32) }, "ISO", "content.iso", enabled && (!isNative || fields.flag("iso")), cell,
+                    iso, { iso = it.take(32); stageContent() }, "ISO", "content.iso", enabled && (!isNative || fields.flag("iso")), cell,
                     placeholder = originalValue("iso"), compact = true,
                 )
             }
@@ -203,12 +214,12 @@ internal fun ContentPanel(
         if (hasModelPicker || editsCaption || hasToggles) EditorSettingsCard {
             if (editsModel) {
                 PanelTextField(
-                    model, { model = it.take(100) }, "型号", "content.model", enabled,
+                    model, { model = it.take(100); stageContent() }, "型号", "content.model", enabled,
                     modifier = if (stackModelField) Modifier.padding(8.dp) else Modifier,
                     placeholder = metadata.text("model"), compact = stackModelField,
                 )
             }
-            if (editsCaption) PanelTextField(caption, { caption = it }, "签名", "content.caption", enabled)
+            if (editsCaption) PanelTextField(caption, { caption = it; stageContent() }, "签名", "content.caption", enabled)
             if (supports("supportsParametersToggle")) SwitchPreference(
                 doc.flag("showParameters", true), { command.patch("参数显示", "showParameters" to it) }, "显示拍摄参数",
                 enabled = enabled, insideMargin = EditorSettingsDefaults.RowPadding, modifier = Modifier.testTag("content.showParameters"),
@@ -239,7 +250,7 @@ internal fun ContentPanel(
             if (editsParameters) {
                 patch["xiaomiOptions"] = mapOf("exifOverrides" to mapOf("focal" to focal.trim(), "aperture" to aperture.trim(), "speed" to speed.trim(), "iso" to iso.trim()))
             }
-            command.send("document.apply", "patch" to patch, "label" to "修改水印内容")
+            if (batchEditing) command.send("batch.applyContent") else command.send("document.apply", "patch" to patch, "label" to "修改水印内容")
             if (!isNative || !editsCaption) close()
         }
     }

@@ -29,6 +29,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 // Child surfaces inherit the material of their enclosing chrome.
 internal val LocalGlassContainer = staticCompositionLocalOf { false }
+internal val LocalGlassActionRim = staticCompositionLocalOf { true }
 
 @Composable
 internal fun glassNestedFill(color: Color): Color =
@@ -51,7 +52,9 @@ internal fun glassTabColors() = top.yukonga.miuix.kmp.basic.TabRowDefaults.tabRo
 
 /** Reuses the parent's already blurred scene. Child controls never register
  * another backdrop or native blur View, preventing recursive/double sampling. */
+@Composable
 internal fun Modifier.glassActionPaint(color: Color, radius: Dp, dark: Boolean, pressed: Boolean = false, enabled: Boolean = true, shape: Shape = MiuixCornerShape(radius), frosted: Boolean = false): Modifier {
+    val showRim = LocalGlassActionRim.current
     val chroma = maxOf(color.red, color.green, color.blue) - minOf(color.red, color.green, color.blue)
     val colored = chroma > .18f
     // A reflection keeps the action's hue; cyan/peach outlines discolored other accents.
@@ -79,7 +82,7 @@ internal fun Modifier.glassActionPaint(color: Color, radius: Dp, dark: Boolean, 
         // Subpixel-spaced coverage approximates a continuous Gaussian falloff along
         // the actual G2 outline, without the two hard inner bands of stacked borders.
         var coverage = 0f
-        val feather = List(20) { index ->
+        val feather = List(if (showRim) 20 else 0) { index ->
             val distance = 3f * (20 - index) / 20f
             val next = (if (colored) .48f else .58f) *
                 kotlin.math.exp(-.5f * (distance / .8f) * (distance / .8f))

@@ -98,6 +98,7 @@ class AlbumPickerActivity : ComponentActivity() {
         bucket = savedInstanceState?.getString("bucket")
         permissionInFlight = savedInstanceState?.getBoolean("permissionInFlight") ?: false
         setContent {
+            currentEditorWindow()
             StarMarkTheme(mapOf("theme" to (intent.getStringExtra(EXTRA_THEME) ?: "system"))) {
                 val haptics = LocalHapticFeedback.current
                 val background = MiuixTheme.colorScheme.background
@@ -364,7 +365,7 @@ private fun AlbumPhotoTile(photo: AlbumPhoto, selectionNumber: Int, thumbnails: 
         awaitDispose { signal.cancel(); job.cancel() }
     }
     val colors = MiuixTheme.colorScheme
-    val shape = MiuixCornerShape(12.dp)
+    val shape = MiuixCornerShape(PhotoGridRadius)
     Box(Modifier.aspectRatio(1f).clip(shape).background(colors.surfaceContainer)
         .then(if (selectionNumber > 0) Modifier.border(3.dp, colors.primary, shape) else Modifier)
         .clickable(role = Role.Checkbox, onClick = onClick)

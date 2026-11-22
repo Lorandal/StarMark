@@ -2,12 +2,12 @@
 
 StarMark 是一款以本地处理为主的 Android 照片水印工具，支持拍摄参数、预设型号、文字与图片签名，以及自定义水印模板。
 
-当前版本：**Beta.0.9.0.56_0D122ED**。最低支持 Android 13。正式版尚未发布。
+当前版本：**Beta.0.9.0.57_D16A7DF**。最低支持 Android 13。正式版尚未发布。
 
 ## 下载与安装
 
-- [GitHub 下载](https://github.com/Lorandal/StarMark/releases/tag/Beta.0.9.0.56_0D122ED)
-- [GitLab 下载](https://gitlab.com/Lorandal/StarMark/-/releases/Beta.0.9.0.56_0D122ED)
+- [GitHub 下载](https://github.com/Lorandal/StarMark/releases/tag/Beta.0.9.0.57_D16A7DF)
+- [GitLab 下载](https://gitlab.com/Lorandal/StarMark/-/releases/Beta.0.9.0.57_D16A7DF)
 
 大多数手机选择 `arm64-v8a.apk`，其他设备按架构选择。下载后可使用同名 `.sha256` 文件或 `SHA256SUMS.txt` 核对文件完整性。
 
@@ -17,8 +17,8 @@ Beta 与正式版使用 `com.realize.starmark`，后续同签名升级可保留�
 
 - 内置 75 款、11 类水印，支持导入外部模板与 StarUW 模板包。
 - 提供 149 款预设型号，支持文字与图片签名、自定义参数图标。
-- 支持最多 20 条草稿、撤销重做、逐模板记忆和批量处理。
-- 关于页可手动检查 GitHub 与 GitLab 发布版本，按当前安装架构选择下载。
+- 支持最多 20 条草稿、撤销重做和逐模板记忆。批量编辑可在照片栏逐张切换和调整水印。
+- 冷启动自动检查更新，关于页也可手动检查。同一版本优先使用 GitLab，按当前安装架构匹配下载包。
 - 支持原尺寸照片导出；HDR、Live 与可逆编辑信息的保留取决于原文件结构及设备能力。
 - 网页工作台用于设计和导出模板，照片处理在 App 中完成。
 

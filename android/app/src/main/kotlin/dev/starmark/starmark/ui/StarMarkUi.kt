@@ -17,6 +17,7 @@ import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal typealias UiCommand = (String, Map<String, Any?>) -> Unit
+internal val PhotoGridRadius = 12.dp
 internal fun Map<*, *>.obj(key: String): Map<*, *> = this[key] as? Map<*, *> ?: emptyMap<Any, Any>()
 internal fun Map<*, *>.rows(key: String): List<Map<*, *>> = (this[key] as? List<*>)?.mapNotNull { it as? Map<*, *> }.orEmpty()
 internal fun Map<*, *>.text(key: String, fallback: String = ""): String = this[key]?.toString() ?: fallback

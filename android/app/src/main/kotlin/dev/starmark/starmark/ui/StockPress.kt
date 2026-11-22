@@ -47,20 +47,21 @@ internal fun Modifier.stockPress(
     val scale by animateFloatAsState(target.scale, animationSpec = animation, label = "stockPressScale")
     val tintAlpha by animateFloatAsState(target.tint.alpha, animationSpec = animation, label = "stockPressTint")
     val tint = stockPressTint(kind, dark)
-    val visibleScale = if (reduceMotion || !enabled) 1f else scale
-    val visibleAlpha = if (reduceMotion || !enabled) 0f else tintAlpha.coerceIn(0f, tint.alpha)
+    val animated = !reduceMotion && enabled
     return this
         .onSizeChanged { maxSizePx = max(it.width, it.height).toFloat() }
         .graphicsLayer {
-            scaleX = visibleScale
-            scaleY = visibleScale
+            val factor = if (animated) scale else 1f
+            scaleX = factor
+            scaleY = factor
         }
         .drawWithContent {
             drawContent()
+            val visibleAlpha = if (animated) tintAlpha.coerceIn(0f, tint.alpha) else 0f
             if (visibleAlpha > 0f) drawRect(tint.copy(alpha = visibleAlpha))
         }
         .semantics {
-            this[StockPressScaleKey] = visibleScale
-            this[StockPressTintKey] = visibleAlpha
+            this[StockPressScaleKey] = if (animated) scale else 1f
+            this[StockPressTintKey] = if (animated) tintAlpha.coerceIn(0f, tint.alpha) else 0f
         }
 }

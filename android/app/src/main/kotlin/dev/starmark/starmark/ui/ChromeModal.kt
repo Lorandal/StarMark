@@ -1,10 +1,11 @@
 package dev.starmark.starmark.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,19 +13,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.dismiss
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
@@ -66,60 +69,54 @@ private fun ChromeModal(
     content: @Composable () -> Unit,
 ) {
     var retained by remember { mutableStateOf(show) }
-    val progress = remember { Animatable(0f) }
-    val effects = LocalStarMarkEffects.current
+    if (!show && !retained) return
+    val visibility = remember { MutableTransitionState(false) }
+    visibility.targetState = show
+    val transition = rememberTransition(visibility, label = "modal")
+    val reduced = LocalStarMarkEffects.current.reduceMotion
+    val progress by transition.animateFloat(transitionSpec = {
+        if (reduced) snap() else spring(dampingRatio = .99f, stiffness = stockPressSpring(false).stiffness,
+            visibilityThreshold = .002f)
+    }, label = "modalReveal") { if (it) 1f else 0f }
     val dismissRequest by rememberUpdatedState(onDismissRequest)
     val dismissFinished by rememberUpdatedState(onDismissFinished)
-    var completionSent by remember { mutableStateOf(false) }
-    val finish: () -> Unit = {
-        retained = false
-        if (!completionSent) {
-            completionSent = true
+    LaunchedEffect(show, visibility.isIdle) {
+        if (show) retained = true
+        else if (visibility.isIdle) {
+            retained = false
             dismissFinished?.invoke()
         }
     }
-    val duration = if (effects.reduceMotion) 0 else 240
-    LaunchedEffect(show) {
-        if (show) {
-            completionSent = false
-            retained = true
-            progress.animateTo(1f, tween(duration, easing = CubicBezierEasing(.2f, .8f, .2f, 1f)))
-        } else if (retained) {
-            progress.animateTo(0f, tween(duration))
-            finish()
-        }
-    }
-    if (!retained && !show) return
     ChromeOverlay {
-        val scope = rememberCoroutineScope()
-        var closing by remember { mutableStateOf(false) }
         val active = LocalChromeOverlayActive.current
         val dismiss: () -> Unit = {
-            if (!closing && dismissRequest != null) {
-                closing = true
-                scope.launch {
-                    progress.animateTo(0f, tween(duration))
-                    // Notify completion before caller may remove this composition entirely.
-                    dismissRequest?.invoke()
-                    finish()
-                }
-            }
+            if (active && show) dismissRequest?.invoke()
         }
         BackHandler(enabled = active) { dismiss() }
-        Box(Modifier.fillMaxSize().testTag("modal.overlay")) {
-            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .28f * progress.value))
-                .pointerInput(active, closing) { detectTapGestures { if (active) dismiss() } })
+        val closing = if (show) Modifier else Modifier.clearAndSetSemantics {}.pointerInput(Unit) {
+            awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } }
+        }
+        Box(Modifier.fillMaxSize().testTag("modal.overlay").then(closing)) {
+            Box(Modifier.matchParentSize().drawBehind { drawRect(Color.Black, alpha = .28f * progress.coerceIn(0f, 1f)) }
+                .pointerInput(active, show) { detectTapGestures { dismiss() } })
             BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(12.dp)) {
-                val density = LocalDensity.current
                 val centered = maxWidth >= 816.dp && maxHeight >= 456.dp
-                var height by remember { mutableIntStateOf(0) }
                 val availableHeight = maxHeight
-                val distance = with(density) { if (height == 0) availableHeight.toPx() else height.toFloat() + 36.dp.toPx() }
+                val bottomInsets = WindowInsets.safeDrawing.union(WindowInsets.ime)
                 ChromeSurface(
                     modifier = modifier.align(if (centered) Alignment.Center else Alignment.BottomCenter)
                         .widthIn(max = 420.dp).fillMaxWidth().heightIn(max = availableHeight)
-                        .offset { IntOffset(0, ((1f - progress.value) * distance).roundToInt()) }
-                        .onSizeChanged { height = it.height }
+                        .layout { measurable, constraints ->
+                            val panel = measurable.measure(constraints)
+                            layout(panel.width, panel.height) {
+                                val travel = if (centered) 16.dp.toPx() else panel.height + bottomInsets.getBottom(this@layout) + 24.dp.toPx()
+                                panel.place(0, ((1f - progress) * travel).roundToInt())
+                            }
+                        }
+                        .then(if (centered) Modifier.graphicsLayer {
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                            alpha = progress.coerceIn(0f, 1f)
+                        } else Modifier)
                         .testTag("modal.surface")
                         .semantics {
                             paneTitle = title ?: "选项"

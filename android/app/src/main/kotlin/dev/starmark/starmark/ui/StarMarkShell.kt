@@ -76,8 +76,9 @@ fun StarMarkShell(
         val shellState = if (!state.flag("ready") && state.flag("busy"))
             lastReadyState + mapOf("busy" to true) else state
         ChromeOverlayHost {
-            StartupReveal(state.flag("ready"), state.text("message")) {
+            StartupReveal(state.flag("ready") && LocalUiFontReady.current, state.text("message")) {
                 ShellContent(shellState, onCommand, onCanvasBounds, onCanvasMotion, onCanvasClip, onEditorViewport)
+                AppUpdateDialog(state.obj("appUpdate"), state.flag("ready") && !state.flag("busy"), onCommand)
                 PhotoExportProgress(state.obj("export"))
                 ImportWorkflow(state.obj("import"), onCommand)
                 val operation = state.obj("operation")
@@ -140,13 +141,13 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
     // One root dialog host survives route transitions; each route moves its own bars.
     Scaffold(Modifier.fillMaxSize(), containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= 600.dp
-        val sideNavigation = useTrailingTabsInCurrentWindow()
+        val windowLayout = currentEditorWindow()
+        val sideNavigation = windowLayout.sideNavigation
         val compact = maxHeight < 500.dp || sideNavigation
         val effects = LocalStarMarkEffects.current
         val reduceMotion = effects.reduceMotion
         val density = LocalDensity.current
-        val startup = LocalStartupProgress.current
+        val startup by LocalStartupProgress.current
         val layoutDirection = LocalLayoutDirection.current
         val rootNavigationVisible = destinations.any { it.id == page }
         val selectingDrafts = page == "home" && state.obj("draftSelection").flag("active")
@@ -173,6 +174,7 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
         ReferencePageTransition(page, onCanvasMotion, trailingTabs = sideNavigation) { shown, offset ->
             routeStates.SaveableStateProvider(shown) {
             val current = shown == page
+            val ownsCanvas = LocalOwnsPhotoCanvas.current
             val rootDestination = destinations.any { it.id == shown }
             val readingWidth = if (rootDestination && sideNavigation) Dp.Infinity else when (shown) {
                 "settings", "experiments", "components", "licenses" -> 720.dp
@@ -197,6 +199,9 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                 else -> "StarMark"
             }
             val templatePreviewBounds = remember { mutableStateOf<Rect?>(null) }
+            val editorBatch = state.obj("batch")
+            // Keep the drawer's motion when a compact editor selects the next photo and auto-closes.
+            val trayReveal = if (shown == "editor" && editorBatch.flag("active")) rememberBatchTrayReveal(editorBatch.flag("expanded")) else null
             // The photo editor's fixed preview starts below its chrome. The template editor
             // scrolls both its preview and its Compose preference rows under the header.
             val chromeBackdrop = if (shown == "templateEditor") {
@@ -208,9 +213,9 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
             CompositionLocalProvider(LocalChromeBackdrop provides chromeBackdrop,
                 LocalRootNavigationRail provides null) {
                 if (shown == "editor" && sideNavigation) key(state.obj("photo").text("id")) {
-                    FoldGalleryEditor(state, guarded, { if (current) changePanel(it) }) { photo, surface, bias ->
+                    FoldGalleryEditor(state, guarded, { if (current) changePanel(it) }, trayReveal) { photo, surface, bias ->
                         val translation = Offset(-offset(), 0f)
-                        onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
+                        if (ownsCanvas()) onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
                     }
                 } else {
                 val reserveLane = rootDestination && shown != "home" && sideNavigation && !bottomNavigationVisible
@@ -289,14 +294,14 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                                     TemplateEditorBody(state, guarded, { if (current) changePanel(it) }, routeInsets, { rect ->
                                         val local = rect?.translate(Offset(-offset(), 0f))
                                         templatePreviewBounds.value = local
-                                        onCanvasBounds(local)
-                                    }, { rect, radius -> onCanvasClip(rect?.translate(Offset(-offset(), 0f)), radius) })
+                                        if (ownsCanvas()) onCanvasBounds(local)
+                                    }, { rect, radius -> if (ownsCanvas()) onCanvasClip(rect?.translate(Offset(-offset(), 0f)), radius) })
                                 }
                                 "editor" -> key(state.obj("photo").text("id")) {
-                                    CameraEditorBody(state, guarded, wide, { if (current) changePanel(it) }, { photo, surface, bias ->
+                                    CameraEditorBody(state, guarded, windowLayout.landscapeWorkspace, { if (current) changePanel(it) }, { photo, surface, bias ->
                                         val translation = Offset(-offset(), 0f)
-                                        onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
-                                    }, trailingTabs = sideNavigation, bodyInsets = editorInsets)
+                                        if (ownsCanvas()) onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
+                                    }, trailingTabs = sideNavigation, bodyInsets = editorInsets, trayReveal = trayReveal)
                                 }
                                 "styles" -> Box(Modifier.fillMaxSize().testTag("screen.styles")) { WatermarkPickerPage(state, guarded, routeInsets) }
                                 "watermarks" -> WatermarkPickerPage(state, guarded, routeInsets)
@@ -305,7 +310,7 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                                 "experiments" -> ExperimentalSettingsPage(state, guarded, routeInsets)
                                 "components" -> ComponentCatalog(routeInsets)
                                 "licenses" -> LicensesPage(routeInsets, reduceMotion)
-                                else -> HomePage(state, guarded, pageInsets, homeBannerPage, selectionInChrome = true)
+                                else -> HomePage(state, guarded, pageInsets, homeBannerPage, selectionInChrome = true, landscapeWorkspace = windowLayout.landscapeWorkspace)
                             }
                         }
                     }
@@ -340,63 +345,58 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                 )
             }
         }
-        deletingDraftIds?.let { ids ->
-            DraftDeleteDialog(ids, busy, onDismiss = { deletingDraftIds = null }) {
-                command.send("draft.delete", "ids" to ids, "confirmed" to true)
-                deletingDraftIds = null
-            }
+        BatchConfirmations(state, command)
+        DraftDeleteDialog(deletingDraftIds, busy, onDismiss = { deletingDraftIds = null }) { ids ->
+            deletingDraftIds = null
+            command.send("draft.delete", "ids" to ids, "confirmed" to true)
         }
-        deletingWatermarkIds?.let { ids ->
-            LibraryDeleteDialog(ids, busy, "水印", "款自定义水印，已有照片与草稿将保留。", "watermark", onDismiss = { deletingWatermarkIds = null }) {
-                command.send("watermark.delete", "ids" to ids, "confirmed" to true)
-                deletingWatermarkIds = null
-            }
+        LibraryDeleteDialog(deletingWatermarkIds, busy, "水印", "款自定义水印，已有照片与草稿将保留。", "watermark", onDismiss = { deletingWatermarkIds = null }) { ids ->
+            deletingWatermarkIds = null
+            command.send("watermark.delete", "ids" to ids, "confirmed" to true)
         }
-            val active = panel
-            var lastPanel by remember { mutableStateOf<String?>(null) }
-            val currentPanel by rememberUpdatedState(active)
-            val focus = LocalFocusManager.current
-            LaunchedEffect(active) {
-                focus.clearFocus()
-                if (active != null && active != "saveStyle") lastPanel = active
-            }
-            if (active == "saveStyle") {
-                SaveStyleDialog(show = true, busy = busy, onDismiss = { changePanel(null) }) { titleValue ->
-                    command.send("style.save", "title" to titleValue)
-                    changePanel(null)
+        val active = panel
+        var lastPanel by remember { mutableStateOf<String?>(null) }
+        val currentPanel by rememberUpdatedState(active)
+        val focus = LocalFocusManager.current
+        LaunchedEffect(active) {
+            focus.clearFocus()
+            if (active != null && active != "saveStyle") lastPanel = active
+        }
+        SaveStyleDialog(show = active == "saveStyle", busy = busy, onDismiss = { changePanel(null) }) { titleValue ->
+            command.send("style.save", "title" to titleValue)
+            changePanel(null)
+        }
+        val sheetPanel = active?.takeUnless { it == "saveStyle" }
+        ChromeBottomSheet(
+            show = sheetPanel != null, title = panelTitle(sheetPanel ?: lastPanel, state.obj("native").flag("enabled")),
+            onDismissRequest = { changePanel(null) },
+            endAction = { TextButton("关闭", { changePanel(null) }, modifier = Modifier.testTag("editor.panel.close")) },
+        ) {
+            val offset = with(LocalDensity.current) { StockPanelOffsetDp.dp.roundToPx() }
+            AnimatedContent(
+                targetState = sheetPanel ?: lastPanel,
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopStart,
+                transitionSpec = {
+                    val enter = if (reduceMotion) 0 else StockPanelEnterMillis
+                    val exit = if (reduceMotion) 0 else StockPanelExitMillis
+                    val easing = Easing { stockEaseOutCubic(it) }
+                    ((slideInHorizontally(tween(enter, easing = easing)) { if (reduceMotion) 0 else offset } + fadeIn(tween(enter, easing = easing))) togetherWith
+                        (slideOutHorizontally(tween(exit, easing = easing)) { if (reduceMotion) 0 else -offset } + fadeOut(tween(exit, easing = easing)))).using(if (reduceMotion) null else SizeTransform(clip = true))
+                }, label = "mediaEditorPanel",
+            ) { shown ->
+                val isCurrent = shown == active
+                val guarded: UiCommand = { action, args ->
+                    if (shown == currentPanel || (action == "adjust" && args["phase"] == "cancel")) command(action, args)
                 }
-            } else {
-                ChromeBottomSheet(
-                    show = active != null, title = panelTitle(active, state.obj("native").flag("enabled")),
-                    onDismissRequest = { changePanel(null) },
-                    endAction = { TextButton("关闭", { changePanel(null) }, modifier = Modifier.testTag("editor.panel.close")) },
-                ) {
-                    val offset = with(LocalDensity.current) { StockPanelOffsetDp.dp.roundToPx() }
-                    AnimatedContent(
-                        targetState = active ?: lastPanel,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.TopStart,
-                        transitionSpec = {
-                            val enter = if (reduceMotion) 0 else StockPanelEnterMillis
-                            val exit = if (reduceMotion) 0 else StockPanelExitMillis
-                            val easing = Easing { stockEaseOutCubic(it) }
-                            ((slideInHorizontally(tween(enter, easing = easing)) { if (reduceMotion) 0 else offset } + fadeIn(tween(enter, easing = easing))) togetherWith
-                                (slideOutHorizontally(tween(exit, easing = easing)) { if (reduceMotion) 0 else -offset } + fadeOut(tween(exit, easing = easing)))).using(if (reduceMotion) null else SizeTransform(clip = true))
-                        }, label = "mediaEditorPanel",
-                    ) { shown ->
-                        val isCurrent = shown == active
-                        val guarded: UiCommand = { action, args ->
-                            if (shown == currentPanel || (action == "adjust" && args["phase"] == "cancel")) command(action, args)
-                        }
-                        Column(Modifier.fillMaxWidth().heightIn(max = maxHeight * .72f).verticalScroll(rememberScrollState()).imePadding()
-                            .then(if (isCurrent) Modifier.testTag("editor.panel.${shown ?: "closed"}") else Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }.pointerInput(Unit) {
-                                awaitPointerEventScope { while (true) { awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } } }
-                            }), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (shown != null) EditorPanel(shown, state, guarded, { if (shown == currentPanel) changePanel(it) }, { if (shown == currentPanel) changePanel(null) })
-                        }
-                    }
+                Column(Modifier.fillMaxWidth().heightIn(max = maxHeight * .72f).verticalScroll(rememberScrollState()).imePadding()
+                    .then(if (isCurrent) Modifier.testTag("editor.panel.${shown ?: "closed"}") else Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }.pointerInput(Unit) {
+                        awaitPointerEventScope { while (true) { awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } } }
+                    }), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (shown != null) EditorPanel(shown, state, guarded, { if (shown == currentPanel) changePanel(it) }, { if (shown == currentPanel) changePanel(null) })
                 }
             }
+        }
     }
 }
 
@@ -405,6 +405,7 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
 @Composable
 internal fun EditorCanvas(
     state: Map<*, *>, modifier: Modifier, foldAlignment: FoldPhotoAlignment?, onViewport: (Rect, Rect, Float) -> Unit,
+    trayInset: Dp = 0.dp,
 ) {
     val layout = state.obj("layout")
     val photo = state.obj("photo")
@@ -414,9 +415,11 @@ internal fun EditorCanvas(
     Column(modifier.padding(vertical = padding), horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val ratio = width / height
-            val viewport = foldAlignment?.viewport(maxWidth.value, maxHeight.value, padding.value)
-                ?: EditorPhotoViewport(EditorPaneBounds(0f, 0f, maxWidth.value, maxHeight.value))
-            val area = viewport.bounds
+            fun viewportAt(h: Dp) = foldAlignment?.viewport(maxWidth.value, h.value, padding.value)
+                ?: EditorPhotoViewport(EditorPaneBounds(0f, 0f, maxWidth.value, h.value))
+            // The Flutter texture keeps this size. Only the photo's presentation follows the drawer.
+            val area = viewportAt(maxHeight).bounds
+            val viewport = viewportAt((maxHeight - trayInset).coerceAtLeast(0.dp))
             val photo = viewport.fit(ratio)
             Box(Modifier.align(AbsoluteAlignment.TopLeft).inEditorPane(area), contentAlignment = AbsoluteAlignment.TopLeft) {
                 Box(Modifier.inEditorPane(photo, area).testTag("editor.canvas").onGloballyPositioned { slot ->
@@ -453,8 +456,8 @@ private fun panelTitle(id: String?, native: Boolean): String = when (id) {
 
 @Composable
 private fun SaveStyleDialog(show: Boolean, busy: Boolean, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var title by rememberSaveable { mutableStateOf("") }
     ChromeDialog(show = show, title = "保存为自定义样式", summary = "保留完整字体、图片与原厂资源，方便下次使用。", onDismissRequest = onDismiss) {
+        var title by rememberSaveable { mutableStateOf("") }
         Column(Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             HalfWidthTextInput {
                 TextField(title, { title = it.take(40) }, colors = glassTextFieldColors(), label = "样式名称", singleLine = true,

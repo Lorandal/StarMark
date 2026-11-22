@@ -152,12 +152,10 @@ internal fun ParameterIconChoiceCard(
         ParameterIconShapePreference(shape, enabled && (onDefault == null || chosen.isNotEmpty()), Modifier.testTag("$tag.shape"), onShape)
         if (summary != null) SupportingText(summary, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
     }
-    confirming?.let { asset ->
-        LibraryDeleteDialog(listOf(asset), !enabled, "图标", "", "$tag.icon",
-            onDismiss = { confirming = null },
-            onConfirm = { confirming = null; deleteBadge = null; onDelete?.invoke(asset) },
-            title = "确认删除图标", summary = "图标删除后，使用该图标的草稿将恢复为默认图标")
-    }
+    LibraryDeleteDialog(confirming?.let(::listOf), !enabled, "图标", "", "$tag.icon",
+        onDismiss = { confirming = null },
+        onConfirm = { ids -> confirming = null; deleteBadge = null; onDelete?.invoke(ids.single()) },
+        title = "确认删除图标", summary = "图标删除后，使用该图标的草稿将恢复为默认图标")
 }
 
 @Composable

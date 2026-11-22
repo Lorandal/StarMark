@@ -1,7 +1,6 @@
 package dev.starmark.starmark.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
@@ -287,9 +286,10 @@ private fun Modifier.trackBounds(vertical: Boolean, start: Dp, cross: Dp, length
     if (vertical) offset(x = cross, y = start).size(width = thickness, height = length)
     else offset(x = start, y = cross).size(width = length, height = thickness)
 
+private val NavigationPressSpring = spring<Float>(dampingRatio = 1f, stiffness = FolmeSpring(1f, .15f).stiffness)
+
 @Composable
-private fun editorPressFraction(held: Boolean, taps: Int, interactive: Boolean, reduced: Boolean,
-                                spec: SpringSpec<Float>): State<Float> {
+internal fun rememberNavigationPress(held: Boolean, taps: Int, interactive: Boolean, reduced: Boolean): State<Float> {
     val press = remember { Animatable(0f) }
     var paintedTap by remember { mutableIntStateOf(taps) }
     LaunchedEffect(held, taps, interactive, reduced) {
@@ -298,7 +298,7 @@ private fun editorPressFraction(held: Boolean, taps: Int, interactive: Boolean, 
         if (!interactive || reduced) {
             press.snapTo(0f)
         } else if (held) {
-            press.animateTo(1f, spec)
+            press.animateTo(1f, NavigationPressSpring)
         } else {
             // DOWN and UP can share a frame. Paint at least 3dp of the original 6dp
             // compression on release, then let the same spring recover immediately.
@@ -306,7 +306,7 @@ private fun editorPressFraction(held: Boolean, taps: Int, interactive: Boolean, 
                 press.snapTo(.5f)
                 withFrameNanos { }
             }
-            press.animateTo(0f, spec)
+            press.animateTo(0f, NavigationPressSpring)
         }
     }
     return press.asState()
@@ -363,10 +363,9 @@ internal fun FloatingNavigationCapsule(
     val activeHovered by interactions[activeIndex].collectIsHoveredAsState()
     val activeFocused by interactions[activeIndex].collectIsFocusedAsState()
     val held = enabled && (pointerHeld || activePressed)
-    val pressSpring = remember { spring<Float>(dampingRatio = 1f, stiffness = FolmeSpring(1f, .15f).stiffness) }
-    val pressFraction = if (layout.iconsOnly) editorPressFraction(held, completedTaps, interactive, effects.reduceMotion, pressSpring)
+    val pressFraction = if (layout.iconsOnly) rememberNavigationPress(held, completedTaps, interactive, effects.reduceMotion)
         else animateFloatAsState(if (held && !effects.reduceMotion) 1f else 0f,
-            animationSpec = if (effects.reduceMotion) snap() else pressSpring, label = "floatingSelectionPress")
+            animationSpec = if (effects.reduceMotion) snap() else NavigationPressSpring, label = "floatingSelectionPress")
     val center = if (dragCenter.isFinite()) dragCenter else track.center(activeIndex)
     val indicatorLength = if (layout.iconsOnly) RailSelectionSize.value else track.itemWidth
     val edges = rememberIndicatorEdges(itemIds, track, selectedIndex, center, indicatorLength, effects.reduceMotion)
@@ -494,6 +493,7 @@ private fun rememberIndicatorEdges(
     itemIds: List<String>, track: FloatingNavigationTrack, selectedIndex: Int, center: Float, length: Float, reduceMotion: Boolean,
 ): State<Pair<Float, Float>> {
     val initialStart = track.center(selectedIndex) - length / 2f
+    val durationScale = LocalStarMarkEffects.current.durationScale
     val initialEnd = initialStart + length
     val start = remember(itemIds, track, length) { SpringValue(initialStart) }
     val end = remember(itemIds, track, length) { SpringValue(initialEnd) }
@@ -514,18 +514,14 @@ private fun rememberIndicatorEdges(
         }
     }
     // Retargeting never cancels this frame clock. Frequent MOVE events retain velocity.
-    LaunchedEffect(start, end, reduceMotion) {
-        for (ignored in changes) {
-            var previous = withFrameNanos { it }
-            while (start.running || end.running) {
-                val now = withFrameNanos { it }
-                val seconds = ((now - previous) / 1_000_000_000f).coerceAtMost(.064f)
-                previous = now
+    LaunchedEffect(start, end, durationScale) {
+        do {
+            runMotionFrames(durationScale, { start.running || end.running }) { seconds ->
                 start.step(seconds)
                 end.step(seconds)
                 edges.value = start.value to end.value
             }
-        }
+        } while (changes.receiveCatching().isSuccess)
     }
     return edges
 }

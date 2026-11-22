@@ -3,19 +3,24 @@ package dev.starmark.starmark.ui
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import kotlinx.coroutines.flow.collectLatest
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val rootTabPages = listOf("home", "settings")
 private val editorTabPages = listOf("styles", "content", "fonts", "position")
+private fun String.usesPhotoCanvas() = this == "editor" || this == "templateEditor"
+internal val LocalOwnsPhotoCanvas = staticCompositionLocalOf<() -> Boolean> { { true } }
 
 /** Tab order and drill depth provide the same direction for enter and return. */
 internal fun pageDirection(from: String, to: String): Int {
@@ -37,7 +42,7 @@ internal fun ReferencePageTransition(
     content: @Composable (String, () -> Float) -> Unit,
 ) {
     val reduced = LocalStarMarkEffects.current.reduceMotion
-    BoxWithConstraints(Modifier.fillMaxSize().then(if (trailingTabs && toolOrder != null) Modifier.clipToBounds() else Modifier)) {
+    BoxWithConstraints(Modifier.fillMaxSize().then(if (toolOrder != null) Modifier.clipToBounds() else Modifier)) {
         val width = with(LocalDensity.current) { maxWidth.toPx() }
         val height = with(LocalDensity.current) { maxHeight.toPx() }
         val history = remember { arrayOf(page) }
@@ -47,30 +52,40 @@ internal fun ReferencePageTransition(
         val verticalTools = toolOrder != null && verticalTabSwitch(trailingTabs, previous, page)
         val pages = updateTransition(page, label = "pageTarget")
         val rootTabs = if (toolOrder == null) rootTabPages else emptyList()
+        // The incoming photo route owns the single texture; a departing one may
+        // still finish its slide when the destination has no photo.
+        var lastPhotoRoute by remember { mutableStateOf<String?>(null) }
+        val canvasOwner by rememberUpdatedState(if (page.usesPhotoCanvas()) page else lastPhotoRoute)
+        if (page.usesPhotoCanvas()) SideEffect { lastPhotoRoute = page }
         pages.AnimatedContent(
             Modifier.fillMaxSize(),
             transitionSpec = { (EnterTransition.None togetherWith ExitTransition.None).using(SizeTransform(clip = false)) },
             contentKey = { if (it in rootTabs) "primary-tabs" else it },
         ) { shown ->
             // The visibility transition keeps one composition per route even when reversed.
-            val displacement = transition.animateFloat(
+            // A third tap must not redirect a page that is already leaving. Animating both
+            // axes also keeps its position continuous when a nested inspector changes axis.
+            val travel = remember(shown == page, trailingTabs) {
+                if (verticalTools) Offset(0f, direction.toFloat()) else Offset(direction.toFloat(), 0f)
+            }
+            val displacement = transition.animateOffset(
                 transitionSpec = { if (reduced) snap() else tween(300, easing = CubicBezierEasing(.22f, .61f, .36f, 1f)) }, label = "pageOffset",
-            ) { phase -> when (phase) { EnterExitState.PreEnter -> direction.toFloat(); EnterExitState.Visible -> 0f; EnterExitState.PostExit -> -direction.toFloat() } }
+            ) { phase -> when (phase) { EnterExitState.PreEnter -> travel; EnterExitState.Visible -> Offset.Zero; EnterExitState.PostExit -> -travel } }
             val alpha = transition.animateFloat(
                 transitionSpec = { if (reduced) snap() else tween(220) }, label = "pageOpacity",
             ) { if (it == EnterExitState.Visible) 1f else 0f }
             // Whole-route pushes move the native chrome and the Flutter texture together on X.
             // Tool-tab changes move only the inspector and leave the photograph stationary.
-            val pageOffset = remember(reduced, verticalTools, width, displacement) {
-                { if (reduced || verticalTools) 0f else displacement.value * width }
+            val pageOffset = remember(reduced, width, displacement) {
+                { if (reduced) 0f else displacement.value.x * width }
             }
             val canvasMotion by rememberUpdatedState(onCanvasMotion)
-            if (shown in listOf("editor", "templateEditor")) {
+            if (shown.usesPhotoCanvas()) {
                 LaunchedEffect(shown, page, pageOffset, alpha) {
                     snapshotFlow { Triple(pageOffset(), alpha.value, shown == page && alpha.value >= .999f) }
-                        .collectLatest { (x, opacity, active) -> canvasMotion(x, opacity, active) }
+                        .collectLatest { (x, opacity, active) -> if (canvasOwner == shown) canvasMotion(x, opacity, active) }
                 }
-                DisposableEffect(Unit) { onDispose { canvasMotion(0f, 0f, false) } }
+                DisposableEffect(shown) { onDispose { if (canvasOwner == shown) canvasMotion(0f, 0f, false) } }
             }
             // Animation state is read by the layer and canvas observer, not by every route's
             // composition. Headers, body and their live blur coordinates move as one subtree.
@@ -81,10 +96,13 @@ internal fun ReferencePageTransition(
                 } else Modifier
             Box(Modifier.fillMaxSize().graphicsLayer {
                 translationX = pageOffset()
-                translationY = if (verticalTools && !reduced) displacement.value * height else 0f
-                this.alpha = alpha.value
-            }.then(outgoingTool)) {
-                if (shown in rootTabs) RetainedRootTabs(shown, rootTabs, width, height, trailingTabs, reduced, pageOffset, content)
+                translationY = if (reduced) 0f else displacement.value.y * height
+                this.alpha = if (toolOrder == null) alpha.value else 1f
+            }.then(if (toolOrder != null) Modifier.background(MiuixTheme.colorScheme.background) else Modifier).then(outgoingTool)) {
+                if (shown.usesPhotoCanvas()) {
+                    val ownsCanvas = remember(shown) { { canvasOwner == shown } }
+                    CompositionLocalProvider(LocalOwnsPhotoCanvas provides ownsCanvas) { content(shown, pageOffset) }
+                } else if (shown in rootTabs) RetainedRootTabs(shown, rootTabs, width, height, trailingTabs, reduced, pageOffset, content)
                 else content(shown, pageOffset)
             }
         }
@@ -103,26 +121,28 @@ private fun RetainedRootTabs(
     parentOffset: () -> Float,
     content: @Composable (String, () -> Float) -> Unit,
 ) {
-    val motion = updateTransition(page, label = "primaryTab")
-    for ((index, tab) in tabs.withIndex()) key(tab) {
-        val displacement = motion.animateFloat(
-            transitionSpec = { if (reduced) snap() else tween(300, easing = CubicBezierEasing(.22f, .61f, .36f, 1f)) },
-            label = "primaryOffset",
-        ) { (index - tabs.indexOf(it)).toFloat() }
-        val alpha = motion.animateFloat(
-            transitionSpec = { if (reduced) snap() else tween(220) }, label = "primaryOpacity",
-        ) { if (it == tab) 1f else 0f }
-        val combinedOffset = remember(parentOffset, displacement, trailingTabs, width) {
-            { parentOffset() + if (trailingTabs) 0f else displacement.value * width }
-        }
-        Box(Modifier.fillMaxSize()
-            .graphicsLayer {
-                translationX = if (trailingTabs) 0f else displacement.value * width
-                translationY = if (trailingTabs) displacement.value * height else 0f
-                this.alpha = alpha.value
+    // Both opaque panes share a single position, including on reversal. Neither needs
+    // a full-window intermediate alpha buffer to slide alongside the other.
+    val position = animateFloatAsState(tabs.indexOf(page).toFloat(),
+        animationSpec = if (reduced) snap() else spring(dampingRatio = .99f, stiffness = stockPressSpring(false).stiffness,
+            visibilityThreshold = .5f / (if (trailingTabs) height else width).coerceAtLeast(1f)),
+        label = "primaryTabPosition")
+    // Keep visited tabs alive without composing the hidden settings page during cold startup.
+    val visited = remember { mutableSetOf(page) }
+    SideEffect { visited.add(page) }
+    Box(Modifier.fillMaxSize().clipToBounds()) {
+        for ((index, tab) in tabs.withIndex()) if (tab == page || tab in visited) key(tab) {
+            val combinedOffset = remember(parentOffset, position, trailingTabs, width, index) {
+                { parentOffset() + if (trailingTabs) 0f else (index - position.value) * width }
             }
-            .then(if (page != tab) Modifier.clearAndSetSemantics { } else Modifier)) {
-            content(tab, combinedOffset)
+            Box(Modifier.fillMaxSize()
+                .graphicsLayer {
+                    translationX = if (trailingTabs) 0f else (index - position.value) * width
+                    translationY = if (trailingTabs) (index - position.value) * height else 0f
+                }
+                .then(if (page != tab) Modifier.clearAndSetSemantics { } else Modifier)) {
+                content(tab, combinedOffset)
+            }
         }
     }
 }

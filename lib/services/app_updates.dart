@@ -39,6 +39,7 @@ class AvailableAppUpdate {
     required this.releaseUrl,
     required this.abi,
     required this.source,
+    this.releaseNotes = '',
   });
 
   final String versionName;
@@ -46,6 +47,7 @@ class AvailableAppUpdate {
   final Uri releaseUrl;
   final String abi;
   final String source;
+  final String releaseNotes;
 }
 
 class UpdateCheckException implements Exception {
@@ -100,7 +102,6 @@ class AppUpdateService {
   final DateTime Function() _now;
   final Duration _requestTimeout;
 
-  /// Only an explicit user action should invoke this method.
   Future<AvailableAppUpdate?> check(InstalledAppVersion installed) async {
     final current = _ReleaseVersion.parse(installed.versionName);
     if (current == null || current.channel != installed.channel) {
@@ -116,8 +117,8 @@ class AppUpdateService {
     try {
       final now = _now().toUtc();
       final sources = await Future.wait([
-        _readSource(reader, _github, 'GitHub', now),
         _readSource(reader, _gitlab, 'GitLab', now),
+        _readSource(reader, _github, 'GitHub', now),
       ]);
       if (sources.every((source) => source == null)) {
         throw const UpdateCheckException(
@@ -156,6 +157,7 @@ class AppUpdateService {
             ),
             abi: abi,
             source: release.source,
+            releaseNotes: _notesFor(release, candidates),
           );
         }
       }
@@ -334,7 +336,31 @@ class AppUpdateService {
         }
       }
     }
-    return _PublishedRelease(version, source, assets);
+    final description = item[github ? 'body' : 'description'];
+    return _PublishedRelease(
+      version,
+      source,
+      assets,
+      description is String ? description : '',
+    );
+  }
+
+  String _notesFor(
+    _PublishedRelease selected,
+    List<_PublishedRelease> candidates,
+  ) {
+    for (final release in [selected, ...candidates]) {
+      if (release.version.tag != selected.version.tag ||
+          release.description.isEmpty) {
+        continue;
+      }
+      final text = _plainReleaseNotes(
+        release.description,
+        selected.version.tag,
+      );
+      if (text.isNotEmpty) return text;
+    }
+    return '';
   }
 
   Uri? _trustedDownload(String raw, _ReleaseVersion version, String name) {
@@ -443,6 +469,44 @@ class AppUpdateService {
   }
 }
 
+String _plainReleaseNotes(String markdown, String tag) {
+  final lines = <String>[];
+  final heading = RegExp(r'^#{1,6}\s+');
+  final installHeading = RegExp(
+    r'^(下载(与安装)?|安装说明|Downloads?( and installation)?)$',
+    caseSensitive: false,
+  );
+  final emphasisTags = RegExp(
+    r'</?(strong|ins|u|b|em|i)>',
+    caseSensitive: false,
+  );
+  final link = RegExp(r'\[([^\]]+)\]\([^)\n]+\)');
+  for (final raw in markdown.replaceAll('\r', '').split('\n')) {
+    final line = raw.trim();
+    var value = line
+        .replaceFirst(heading, '')
+        .replaceAll(emphasisTags, '')
+        .replaceAll('**', '')
+        .replaceAll('`', '')
+        .replaceAllMapped(link, (match) => match[1]!);
+    if (heading.hasMatch(line) && installHeading.hasMatch(value)) break;
+    if (value == tag ||
+        value == 'StarMark $tag' ||
+        value == '✧✦ 更新内容 ✦✧' ||
+        value == '更新日志' ||
+        value == '更新内容' ||
+        value.startsWith('Beta 测试版，版本代码') ||
+        value.startsWith('Android 13 及以上版本可用。多数手机选择')) {
+      continue;
+    }
+    value = value.replaceFirst(RegExp(r'^[-*+]\s+'), '• ');
+    if (value.isNotEmpty || (lines.isNotEmpty && lines.last.isNotEmpty)) {
+      lines.add(value);
+    }
+  }
+  return lines.join('\n').trim();
+}
+
 class _ReleaseVersion implements Comparable<_ReleaseVersion> {
   _ReleaseVersion(this.tag, this.channel, this.parts);
 
@@ -507,9 +571,10 @@ class _ReleaseVersion implements Comparable<_ReleaseVersion> {
 }
 
 class _PublishedRelease {
-  _PublishedRelease(this.version, this.source, this.assets);
+  _PublishedRelease(this.version, this.source, this.assets, this.description);
 
   final _ReleaseVersion version;
   final String source;
   final Map<String, Uri> assets;
+  final String description;
 }

@@ -13,10 +13,12 @@ class FactoryWatermarkCatalog {
   final Map<String, Map<String, String>> _resourceAssets;
   final Map<String, Future<Uint8List>> _assetJobs = {};
 
-  FactoryWatermarkCatalog._(this._bundle, this._styles, this._categoryTitles)
-    : _resourceAssets = {
-        for (final style in _styles) style['id'] as String: _resources(style),
-      };
+  FactoryWatermarkCatalog._(
+    this._bundle,
+    this._styles,
+    this._categoryTitles,
+    this._resourceAssets,
+  );
 
   /// Pure index lookup for native UI images; never constructs a path from input.
   /// The controller separately requires the image's package to be validated.
@@ -47,19 +49,19 @@ class FactoryWatermarkCatalog {
     if ((index['styles'] as List).length > 512) {
       throw const FormatException('内置水印数量超限');
     }
-    final ids = <String>{};
+    final resourcesById = <String, Map<String, String>>{};
     for (final row in index['styles'] as List) {
       final style = Map<String, dynamic>.from(row as Map);
       final id = style['id'] as String;
       if (!RegExp(r'^factory-[a-z0-9_]+-[0-9]+$').hasMatch(id) ||
-          !ids.add(id) ||
+          resourcesById.containsKey(id) ||
           !categories.containsKey(style['category'])) {
         throw const FormatException('无效的内置水印索引');
       }
-      _resources(style);
+      resourcesById[id] = _resources(style);
       styles.add(style);
     }
-    return FactoryWatermarkCatalog._(source, styles, categories);
+    return FactoryWatermarkCatalog._(source, styles, categories, resourcesById);
   }
 
   static Map<String, String> _resources(Map<String, dynamic> style) {
@@ -113,7 +115,7 @@ class FactoryWatermarkCatalog {
     final rows = _styles.where((row) => row['id'] == id);
     if (rows.isEmpty) throw const FormatException('内置水印不存在');
     final row = rows.single;
-    final resources = _resources(row);
+    final resources = _resourceAssets[id]!;
     final hashes = Map<String, dynamic>.from(row['sha256'] as Map);
     final result = <String, Uint8List>{};
     for (final entry in resources.entries) {
@@ -132,7 +134,7 @@ class FactoryWatermarkCatalog {
     final styles = <StylePreset>[];
     for (final row in _styles) {
       final id = row['id'] as String;
-      final resources = _resources(row);
+      final resources = _resourceAssets[id]!;
       final config = await _asset(resources['config.json']!);
       if (config.length > 4 * 1024 * 1024 ||
           sha256.convert(config).toString() !=

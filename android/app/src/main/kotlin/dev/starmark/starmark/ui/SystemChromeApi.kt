@@ -26,7 +26,7 @@ internal class SystemChromeApi private constructor(private val type: Class<*>) {
 
     fun apply(source: Any, target: Any, radiusPx: Int, density: Float, dark: Boolean,
         role: ChromeMaterialRole = ChromeMaterialRole.Standard, strength: Float = 1f,
-        tryGlassOptics: Boolean = false): Boolean {
+        tryGlassOptics: Boolean = false, showRim: Boolean = true): Boolean {
         if (radiusPx < 0 || !density.isFinite() || density <= 0f || !strength.isFinite()) return false
         if (!supported && !tryGlassOptics) return false
         val header = role == ChromeMaterialRole.HeaderButton
@@ -60,7 +60,7 @@ internal class SystemChromeApi private constructor(private val type: Class<*>) {
                     ChromeMaterialRecipe.glass(dark).forEach { call(addBlend, target, it.argb.toInt(), it.mode) }
                 }
                 // Glass_Stroke_Middle widths, and Regular shadow distances, use display density.
-                runCatching { bloom?.invoke(target, ChromeMaterialRecipe.headerStroke(density, dark) as Any) }
+                runCatching { bloom?.invoke(target, (if (showRim) ChromeMaterialRecipe.headerStroke(density, dark) else floatArrayOf()) as Any) }
                 runCatching { navigationShadow(target, 0x59000000, (2f * density).roundToInt().toFloat(),
                     (64f * density).roundToInt().toFloat(), .8f) }
                 return@runCatching
@@ -95,6 +95,7 @@ internal class SystemChromeApi private constructor(private val type: Class<*>) {
             }
             // Bloom/shadow are decorations. Their absence must not discard a working blur.
             runCatching { bloom?.invoke(target, (when {
+                !showRim -> floatArrayOf()
                 modal -> ChromeMaterialRecipe.modalStroke(density, dark)
                 header -> ChromeMaterialRecipe.headerStroke(density, dark)
                 else -> ChromeMaterialRecipe.smallStroke(density)

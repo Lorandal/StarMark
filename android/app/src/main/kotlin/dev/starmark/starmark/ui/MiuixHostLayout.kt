@@ -22,6 +22,11 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
     private var canvasView: View? = null
     private var viewport: android.graphics.Rect? = null
     private var surfaceBounds: android.graphics.Rect? = null
+    private var fitBias: Float? = null
+    private var photoScale = 1f
+    private var photoOffsetX = 0f
+    private var photoOffsetY = 0f
+    private var pageOffsetX = 0f
     private var previewClip: Rect? = null
     private var previewRadius = 0f
     private val previewPath = android.graphics.Path()
@@ -58,7 +63,8 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
     fun updatePageMotion(offset: Float, alpha: Float, interactive: Boolean) {
         pageAlpha = alpha.coerceIn(0f, 1f)
         canvasInput = interactive
-        canvasView?.translationX = offset
+        pageOffsetX = offset
+        canvasView?.translationX = pageOffsetX + photoOffsetX
         canvasView?.alpha = pageAlpha
         updateCanvasVisibility()
     }
@@ -82,6 +88,7 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
         if (child !== shell) {
             check(canvasView == null || canvasView === child) { "Only one Flutter view may be hosted" }
             canvasView = child
+            applyPhotoPlacement()
             child.alpha = pageAlpha
             updateCanvasVisibility()
             shell?.let(::bringChildToFront)
@@ -101,17 +108,47 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
             .takeIf { bounds -> bounds.width() > 0 && bounds.height() > 0 }
     }
 
-    fun updateViewport(rect: Rect?, surface: Rect? = rect) {
+    fun updateViewport(rect: Rect?, surface: Rect? = rect, batchFitBias: Float? = null) {
         val next = rect.pixelBounds()
         val nextSurface = surface.pixelBounds()
-        if (next == viewport && nextSurface == surfaceBounds) return
+        if (next == viewport && nextSurface == surfaceBounds && fitBias == batchFitBias) return
         val resize = nextSurface != surfaceBounds
         viewport = next
         surfaceBounds = nextSurface
+        fitBias = batchFitBias
+        applyPhotoPlacement()
         previewPathDirty = true
         photoGeometryRevision++
         updateCanvasVisibility()
         if (resize) requestLayout() else invalidate()
+    }
+
+    /** Move the existing texture along with the drawer. The Flutter buffer retains its resolution. */
+    private fun applyPhotoPlacement() {
+        val child = canvasView ?: return
+        val surface = surfaceBounds
+        val photo = viewport
+        val bias = fitBias
+        if (photo != null && surface != null && bias != null) {
+            val buffer = EditorPaneBounds(0f, 0f, surface.width().toFloat(), surface.height().toFloat())
+            val original = EditorPhotoViewport(buffer, bias).fit(photo.width().toFloat() / photo.height())
+            photoScale = photo.width() / original.width
+            photoOffsetX = photo.left - surface.left - original.left * photoScale
+            photoOffsetY = photo.top - surface.top - original.top * photoScale
+            child.clipBounds = android.graphics.Rect(kotlin.math.floor(original.left).toInt(), kotlin.math.floor(original.top).toInt(),
+                kotlin.math.ceil(original.right).toInt(), kotlin.math.ceil(original.bottom).toInt())
+        } else {
+            photoScale = 1f
+            photoOffsetX = 0f
+            photoOffsetY = 0f
+            child.clipBounds = null
+        }
+        child.pivotX = 0f
+        child.pivotY = 0f
+        child.scaleX = photoScale
+        child.scaleY = photoScale
+        child.translationX = pageOffsetX + photoOffsetX
+        child.translationY = photoOffsetY
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -152,17 +189,22 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
             return null
         }
         val texture = findTexture(canvas) ?: return null
-        val localVisible = android.graphics.Rect()
-        if (!texture.getLocalVisibleRect(localVisible) || localVisible.isEmpty) return null
+        val rootVisible = android.graphics.Rect()
+        if (!texture.getGlobalVisibleRect(rootVisible) || rootVisible.isEmpty) return null
         val location = IntArray(2).also(texture::getLocationInWindow)
         val left = location[0].toFloat()
         val top = location[1].toFloat()
-        val bounds = Rect(left, top, left + texture.width, top + texture.height)
-        val surface = surfaceBounds ?: return null
+        val bounds = Rect(left, top, left + texture.width * photoScale, top + texture.height * photoScale)
         val photo = viewport ?: return null
-        val visible = Rect(left + localVisible.left, top + localVisible.top, left + localVisible.right, top + localVisible.bottom)
-            .intersect(Rect(left + photo.left - surface.left, top + photo.top - surface.top,
-                left + photo.right - surface.left, top + photo.bottom - surface.top))
+        // The visible rect already includes ancestor transforms. Intersect all three rectangles in window pixels.
+        val rootOrigin = IntArray(2).also(texture.rootView::getLocationInWindow)
+        val hostOrigin = IntArray(2).also(::getLocationInWindow)
+        val x = hostOrigin[0] + pageOffsetX
+        val y = hostOrigin[1].toFloat()
+        val visible = Rect((rootOrigin[0] + rootVisible.left).toFloat(), (rootOrigin[1] + rootVisible.top).toFloat(),
+            (rootOrigin[0] + rootVisible.right).toFloat(), (rootOrigin[1] + rootVisible.bottom).toFloat())
+            .intersect(bounds)
+            .intersect(Rect(x + photo.left, y + photo.top, x + photo.right, y + photo.bottom))
         if (visible.isEmpty) return null
         var alpha = 1f
         var ancestor: View? = texture

@@ -64,27 +64,33 @@ internal fun CameraEditorTopBar(state: Map<*, *>, command: UiCommand, sideHistor
     val ready = state.flag("ready")
     val interactive = state.editable()
     val template = state.obj("template").flag("active")
+    val batch = state.obj("batch").flag("active")
+    val saveLabel = if (batch) "完成" else "保存"
+    val saveAction = if (template) "template.save" else if (batch) "batch.done" else "photo.export"
     Row(Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 72.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HistoryButtonSpacing)) {
         CameraCircle("关闭编辑", "navigation.back", MiuixIcons.Close, ready, interactive) { command.send("navigate.back") }
         if (!sideHistory) CameraHistoryButtons(state, command)
         if (template) Text(state.obj("template").text("title"), modifier = Modifier.weight(1f), maxLines = 1) else Spacer(Modifier.weight(1f))
-        CameraGlassButton("保存", if (template) "template.save" else "photo.export", ready && interactive, width = (34f * LocalDensity.current.fontScale + 34f).dp, onClick = { command.send(if (template) "template.save" else "photo.export") }) {
-            Text("保存", fontSize = 17.sp, maxLines = 1, color = if (ready) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
+        CameraGlassButton(saveLabel, saveAction, ready && interactive, width = (34f * LocalDensity.current.fontScale + 34f).dp, onClick = { command.send(saveAction) }) {
+            Text(saveLabel, fontSize = 17.sp, maxLines = 1, color = if (ready) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
         }
         if (template) TextButton("重置", hapticClick { command.send("template.reset") }, modifier = Modifier.testTag("template.reset"))
         if (!template) MorphingMoreMenu(
-            entries = remember { listOf(
-                MorphMenuEntry("photo.import", "更换照片", MiuixIcons.Image),
-                MorphMenuEntry("history", "编辑历史", MiuixIcons.Undo),
-                MorphMenuEntry("saveStyle", "保存水印样式", MiuixIcons.Edit),
-                MorphMenuEntry("draft.save", "保存草稿", MiuixIcons.Ok),
-            ) },
+            entries = remember(batch) { photoMenuEntries(batch) },
             onAction = { if (it == "history" || it == "saveStyle") openPanel(it) else command.send(it) },
             enabled = ready,
             interactionEnabled = interactive,
             modifier = Modifier.size(48.dp),
         )
     }
+}
+
+internal fun photoMenuEntries(batch: Boolean) = buildList {
+    add(if (batch) MorphMenuEntry("batch.exportCurrent", "导出当前照片", MiuixIcons.Image)
+        else MorphMenuEntry("photo.import", "更换照片", MiuixIcons.Image))
+    add(MorphMenuEntry("history", "编辑历史", MiuixIcons.Undo))
+    add(MorphMenuEntry("saveStyle", "保存水印样式", MiuixIcons.Edit))
+    if (!batch) add(MorphMenuEntry("draft.save", "保存草稿", MiuixIcons.Ok))
 }
 
 @Composable
@@ -125,7 +131,7 @@ internal fun CameraGlassButton(label: String, tag: String, enabled: Boolean, wid
 internal fun CameraEditorBody(
     state: Map<*, *>, command: UiCommand, wide: Boolean, openPanel: (String) -> Unit,
     onViewport: (androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect, Float) -> Unit, trailingTabs: Boolean = false,
-    bodyInsets: PaddingValues = PaddingValues(0.dp),
+    bodyInsets: PaddingValues = PaddingValues(0.dp), trayReveal: State<Float>? = null,
 ) {
     val photoId = state.obj("photo").text("id")
     var tool by rememberSaveable(photoId) { mutableStateOf("styles") }
@@ -155,6 +161,13 @@ internal fun CameraEditorBody(
     val feature = separatingEditorFold()
     var origin by remember { mutableStateOf(Offset.Zero) }
     val keyboardOpen = WindowInsets.ime.getBottom(density) > 0
+    val batch = state.obj("batch")
+    val showTray = batch.flag("active") && !keyboardOpen
+    val expanded = batch.flag("expanded")
+    LaunchedEffect(keyboardOpen) {
+        if (keyboardOpen && batch.flag("active") && expanded) command.send("batch.tray", "expanded" to false)
+    }
+    BackHandler(enabled = showTray && expanded && nested == null && !batch.flag("confirmContent")) { command.send("batch.tray", "expanded" to false) }
     val bottomMargin = navigationBottomMargin(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value)
     val entries = remember { listOf(
         FloatingNavEntry("styles", "水印", MiuixIcons.Image),
@@ -190,7 +203,10 @@ internal fun CameraEditorBody(
                     gapToCard = controls.left - panes.preview.right + EditorToolsSidePadding.value,
                 )
             } else null
-            EditorCanvas(state, Modifier.inEditorPane(panes.preview).testTag("editor.previewPane"), photoAlignment, onViewport)
+            val photoPane = panes.preview
+            val tray = if (showTray) batchTrayLayout((photoPane.width.dp - EditorSettingsDefaults.PageInset * 2).coerceAtLeast(0.dp), batch, trayReveal) else null
+            EditorPhotoWithTray(state, command, Modifier.inEditorPane(photoPane), photoAlignment, onViewport, tray,
+                compact = !currentEditorWindow().wide, trayInset = EditorSettingsDefaults.PageInset)
             val railOverPhoto = trailingTabs && !keyboardOpen && panes.preview.right > controls.right
             val anchor = if (railOverPhoto) panes.preview else controls
             val toolsArea = if (railOverPhoto) EditorPaneBounds(0f, 0f, maxWidth.value, maxHeight.value) else controls
@@ -219,6 +235,32 @@ internal fun CameraEditorBody(
                         tagPrefix = "editor.tool", modifier = Modifier.align(Alignment.BottomCenter))
                 }
             })
+        }
+    }
+}
+
+@Composable
+internal fun EditorPhotoWithTray(
+    state: Map<*, *>, command: UiCommand, modifier: Modifier, alignment: FoldPhotoAlignment?,
+    onViewport: (androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect, Float) -> Unit,
+    tray: BatchTrayLayout?, compact: Boolean, trayInset: androidx.compose.ui.unit.Dp = 0.dp,
+    trayDensity: androidx.compose.ui.unit.Density = LocalDensity.current,
+) {
+    if (tray == null) {
+        EditorCanvas(state, modifier.testTag("editor.previewPane"), alignment, onViewport)
+        return
+    }
+    BoxWithConstraints(modifier) {
+        val scale = trayDensity.density / LocalDensity.current.density
+        val room = (maxHeight - 1.dp).coerceAtLeast(0.dp)
+        val header = minOf(room, tray.headerHeight * scale)
+        val visible = minOf(room, tray.height * scale)
+        EditorCanvas(state, Modifier.fillMaxWidth().height(maxHeight - header).testTag("editor.previewPane"),
+            alignment, onViewport, trayInset = visible - header)
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(visible).padding(horizontal = trayInset)) {
+            CompositionLocalProvider(LocalDensity provides trayDensity) {
+                BatchPhotoTray(state, command, Modifier.fillMaxSize(), tray, compact)
+            }
         }
     }
 }
@@ -368,13 +410,13 @@ private fun CameraWatermarkControls(state: Map<*, *>, command: UiCommand, openPa
         }
         if (!state.obj("template").flag("active")) Row(Modifier.fillMaxWidth().height(88.dp).padding(start = 12.dp).testTag("editor.watermarkStrip"), verticalAlignment = Alignment.CenterVertically) {
             CameraNoWatermark(!enabled, editable, accent) { command.patch("关闭照片水印", "enabled" to false) }
-            Spacer(Modifier.width(9.dp))
+            Spacer(Modifier.width(EditorStripDefaults.Gap))
             categoryStates.SaveableStateProvider(category) {
             // Center the 64dp tiles in the available row. At the intended 88dp row
             // this supplies 12dp above and below; on shorter rows only that air shrinks.
-            LazyRow(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(end = 12.dp), horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
+            LazyRow(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(end = 12.dp), horizontalArrangement = Arrangement.spacedBy(EditorStripDefaults.Gap), verticalAlignment = Alignment.CenterVertically) {
                 items(rows.filter { it.text("category") == category }, key = { it.text("id") }) { row ->
-                    WatermarkTile(row, enabled && row.flag("selected"), 80.dp, accent, editable, height = 64.dp) {
+                    WatermarkTile(row, enabled && row.flag("selected"), 80.dp, accent, editable, height = EditorStripDefaults.FrameHeight) {
                         if (row.flag("selected") && enabled) {
                             openPanel("styleOptions")
                         } else command.send("style.apply", "id" to row.text("id"))

@@ -13,6 +13,13 @@ import androidx.compose.ui.unit.dp
  * Alignment uses the checked path geometry at full opacity; the caller supplies state tint.
  */
 object ReferenceIcons {
+    /** Small filled disclosure caret used after the label in Xiaomi settings lists. */
+    val DisclosureDown by lazy {
+        referenceVector("DisclosureDown", 10f, paths = listOf(
+            ReferencePath("M0.8,1.8H9.2C9.85,1.8 10.2,2.55 9.77,3.06L5.59,8.01C5.28,8.38 4.72,8.38 4.41,8.01L0.23,3.06C-0.2,2.55 0.15,1.8 0.8,1.8Z"),
+        ))
+    }
+
     /** Filled navigation variant of bundled Miuix Settings.Regular.
      * Exact outer hexagon and the visible central circle's OUTER contour as its hole.
      * Original viewport and 24dp size; original group Y flip is baked in.

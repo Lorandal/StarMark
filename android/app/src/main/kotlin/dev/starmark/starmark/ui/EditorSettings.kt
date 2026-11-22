@@ -19,6 +19,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal object EditorSettingsDefaults {
+    val PageInset = 12.dp
     val GroupSpacing = 12.dp
     val CardRadius = 20.dp
     val RowInset = 16.dp

@@ -29,7 +29,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
@@ -62,12 +61,10 @@ private object BannerTypeface {
 
 /** Three retained image layers; pointer updates only transform layers, never bridge state. */
 @Composable
-internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPage: MutableIntState) {
+internal fun HomeBannerCarousel(state: Map<*, *>, command: UiCommand, selectedPage: MutableIntState, landscape: Boolean = currentEditorWindow().landscapeWorkspace) {
     val context = LocalContext.current
     val effects = LocalStarMarkEffects.current
     val density = LocalDensity.current
-    val window = LocalWindowInfo.current.containerSize
-    val landscape = window.width > window.height
     val scope = rememberCoroutineScope()
     val interactions = remember { List(3) { MutableInteractionSource() } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle

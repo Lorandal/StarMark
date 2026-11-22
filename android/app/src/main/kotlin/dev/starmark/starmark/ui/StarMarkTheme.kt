@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -18,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.defaultTextStyles
@@ -27,11 +30,17 @@ internal data class StarMarkEffects(
     val mode: GlassMode = GlassMode.Frosted,
     val systemGlassSupported: Boolean = false,
     val reduceMotion: Boolean = false,
+    val durationScale: Float = 1f,
 ) {
     val glass: Boolean get() = mode != GlassMode.Off
     val systemGlass: Boolean get() = mode == GlassMode.SystemGlass && systemGlassSupported
 }
 internal val LocalStarMarkEffects = staticCompositionLocalOf { StarMarkEffects() }
+internal val LocalUiFontReady = staticCompositionLocalOf { true }
+
+private object UiTypeface {
+    @Volatile var family: FontFamily? = null
+}
 
 /** UI typography is independent of the photograph's selected watermark font. */
 @Composable
@@ -49,17 +58,22 @@ internal fun StarMarkTheme(settings: Map<*, *>, content: @Composable () -> Unit)
             override fun onChange(selfChange: Boolean) { capabilityRevision++ }
         }
         val resolver = context.contentResolver
-        runCatching {
-            resolver.registerContentObserver(Settings.Secure.getUriFor("background_blur_enable"), false, observer)
-            resolver.registerContentObserver(Settings.Secure.getUriFor("material_style"), false, observer)
-        }
+        listOf(Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+            Settings.Secure.getUriFor("background_blur_enable"), Settings.Secure.getUriFor("material_style"))
+            .forEach { uri -> runCatching { resolver.registerContentObserver(uri, false, observer) } }
         onDispose { runCatching { resolver.unregisterContentObserver(observer) } }
     }
-    val family = remember(context) {
-        runCatching {
-            FontFamily(Typeface.createFromAsset(context.assets, "flutter_assets/assets/fonts/MiSansVF.ttf"))
-        }.getOrDefault(FontFamily.SansSerif)
+    val assets = context.applicationContext.assets
+    val bundledFamily by produceState(UiTypeface.family, assets) {
+        if (value == null) value = withContext(Dispatchers.IO) {
+            synchronized(UiTypeface) {
+                UiTypeface.family ?: runCatching {
+                    FontFamily(Typeface.createFromAsset(assets, "flutter_assets/assets/fonts/MiSansVF.ttf"))
+                }.getOrDefault(FontFamily.SansSerif).also { UiTypeface.family = it }
+            }
+        }
     }
+    val family = bundledFamily ?: FontFamily.SansSerif
     val textStyles = remember(family) {
         val defaults = defaultTextStyles()
         defaults.copy(
@@ -86,11 +100,15 @@ internal fun StarMarkTheme(settings: Map<*, *>, content: @Composable () -> Unit)
             surfaceContainerHighest = Color(0xFF3A3B3F), surfaceVariant = Color(0xFF242527),
         ) else lightColorScheme(background = Color(0xFFF3F3F3))
     }
-    @Suppress("UNUSED_VARIABLE") val observedCapabilityRevision = capabilityRevision
+    val durationScale = remember(context, capabilityRevision) {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+            .takeIf { it.isFinite() && it >= 0f } ?: 1f
+    }
     val systemGlassSupported = MiuiMaterialCapability.glassSupported(context)
     val mode = resolveGlassMode(settings["glassMode"] as? String, settings["glass"] as? Boolean, systemGlassSupported)
     CompositionLocalProvider(
-        LocalStarMarkEffects provides StarMarkEffects(mode, systemGlassSupported, settings.flag("reduceMotion")),
+        LocalUiFontReady provides (bundledFamily != null),
+        LocalStarMarkEffects provides StarMarkEffects(mode, systemGlassSupported, durationScale == 0f || settings.flag("reduceMotion"), durationScale),
         LocalHapticFeedback provides rememberStarMarkHapticFeedback(),
     ) {
         MiuixTheme(colors = colors, textStyles = textStyles, content = content)

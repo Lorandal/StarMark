@@ -76,7 +76,8 @@ internal fun ChromePane(
 internal fun ChromeTextButton(text: String, tag: String, enabled: Boolean = true, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Box(Modifier.fillMaxWidth().height(52.dp).testTag(tag).clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = hapticClick(onClick = onClick))) {
-        ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled), cornerRadius = 26.dp, cornerKind = CornerKind.Capsule) {
+        ChromeSurface(Modifier.fillMaxSize().stockPress(interaction, StockPressKind.Banner, enabled), cornerRadius = 26.dp,
+            cornerKind = CornerKind.Capsule, showRim = LocalGlassActionRim.current) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(text, fontSize = 17.sp, color = if (enabled) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
             }
@@ -105,11 +106,16 @@ internal fun ChromeSurface(
     role: ChromeMaterialRole = ChromeMaterialRole.Standard,
     strength: Float = 1f,
     cornerKind: CornerKind = CornerKind.Fixed,
+    showRim: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val effects = LocalStarMarkEffects.current
     val scopedContent: @Composable () -> Unit = {
-        CompositionLocalProvider(LocalGlassContainer provides effects.glass) { content() }
+        CompositionLocalProvider(
+            LocalGlassContainer provides effects.glass,
+            LocalGlassActionRim provides (LocalGlassActionRim.current && role != ChromeMaterialRole.Modal && role != ChromeMaterialRole.Popup),
+            content = content,
+        )
     }
     if (effects.systemGlass) {
         MiuiBlurSurface(modifier = modifier, cornerRadius = cornerRadius, shadowElevation = shadowElevation,
@@ -119,7 +125,7 @@ internal fun ChromeSurface(
                 ChromeMaterialRole.Modal, ChromeMaterialRole.Popup -> ChromeMaterialRecipe.modalBlurRadiusDp.dp
                 ChromeMaterialRole.Standard -> ChromeMaterialRecipe.nativeBlurRadiusDp.dp
             },
-            role = role, strength = strength, cornerKind = cornerKind, content = scopedContent)
+            role = role, strength = strength, cornerKind = cornerKind, showRim = showRim, content = scopedContent)
         return
     }
     val backdrop = LocalChromeBackdrop.current
@@ -137,7 +143,8 @@ internal fun ChromeSurface(
     ) else Modifier.background(Color(if (navigation) ChromeMaterialRecipe.navigationSolid(dark) else ChromeMaterialRecipe.solid(dark)), shape)
     // Every frosted role shares one subdued edge, including the Miuix fallback.
     // Haze already provides optical reflection; an opaque white border doubles it.
-    val rim = if (glass && effects.mode == GlassMode.Frosted) Modifier.frostedEdge(shape, dark)
+    val rim = if (!showRim) Modifier
+    else if (glass && effects.mode == GlassMode.Frosted) Modifier.frostedEdge(shape, dark)
     else if ((navigation || portable) && glass) Modifier.border(1.dp, Brush.verticalGradient(listOf(
         Color.White.copy(alpha = if (dark) { if (portable) .38f else .14f } else .80f),
         Color.White.copy(alpha = if (dark) .035f else .16f),

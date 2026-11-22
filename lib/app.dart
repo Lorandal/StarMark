@@ -76,6 +76,7 @@ class _StarMarkAppState extends State<StarMarkApp> with WidgetsBindingObserver {
       _original = false;
       bridge.cancelInteraction();
       unawaited(editor.saveDraft());
+      unawaited(bridge.saveBatchOnBackground());
     }
   }
 

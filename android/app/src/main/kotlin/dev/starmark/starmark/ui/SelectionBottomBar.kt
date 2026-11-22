@@ -20,17 +20,14 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /** Both libraries use the same interrupted/reversed FileExplorer motion. */
 @Composable
 internal fun rememberBottomBarFrame(actions: Boolean, visible: Boolean): BottomBarFrame {
-    val reduceMotion = LocalStarMarkEffects.current.reduceMotion
+    val effects = LocalStarMarkEffects.current
     val motion = remember { BottomBarMotion(actions, visible) }
     var frame by remember { mutableStateOf(motion.frame) }
-    LaunchedEffect(actions, visible, reduceMotion) {
-        motion.retarget(actions, visible, immediate = reduceMotion)
+    LaunchedEffect(actions, visible, effects.reduceMotion, effects.durationScale) {
+        motion.retarget(actions, visible, immediate = effects.reduceMotion)
         frame = motion.frame
-        var previous = withFrameNanos { it }
-        while (motion.running) {
-            val now = withFrameNanos { it }
-            motion.step(((now - previous) / 1_000_000_000f).coerceAtMost(.064f))
-            previous = now
+        runMotionFrames(effects.durationScale, { motion.running }) { seconds ->
+            motion.step(seconds)
             frame = motion.frame
         }
     }

@@ -18,13 +18,15 @@ import '../services/region_assets.dart';
 import '../editor/global_parameter_icon.dart';
 import '../services/native_bridge.dart';
 import '../services/app_updates.dart';
+import '../services/batch_photo_session.dart';
+import '../services/reversible_edit.dart';
 
 /// The native shell owns presentation; this bridge owns editor commands/state.
 class NativeUiBridge extends ChangeNotifier {
   NativeUiBridge(this.photoEditor, {AppUpdateService? updateService})
     : _updateService = updateService ?? AppUpdateService() {
     photoEditor.liveDraftReferences = () => [
-      for (final photo in _batch) photo.toJson(),
+      _session.toJson(),
       if (_templateEditor != null) _templateEditor!.history.toJson(),
     ];
     _lastEditorMessage = editor.message;
@@ -38,9 +40,10 @@ class NativeUiBridge extends ChangeNotifier {
   final EditorController photoEditor;
   final AppUpdateService _updateService;
   bool _checkingUpdate = false, _openingUpdate = false;
+  bool _launchUpdate = false, _manualUpdateFeedback = false;
   AvailableAppUpdate? _availableUpdate;
   EditorController? _templateEditor;
-  EditorController get editor => _templateEditor ?? photoEditor;
+  EditorController get editor => _templateEditor ?? _batchEditor ?? photoEditor;
   StylePreset? _editingTemplate;
   String? _initialTemplate;
   bool _openingTemplate = false;
@@ -83,7 +86,7 @@ class NativeUiBridge extends ChangeNotifier {
       return;
     }
     _openingTemplate = false;
-    photoEditor.removeListener(_editorChanged);
+    editor.removeListener(_editorChanged);
     _templateEditor = next;
     _editingTemplate = style;
     _initialTemplate = jsonEncode(next.document.toJson());
@@ -98,13 +101,97 @@ class NativeUiBridge extends ChangeNotifier {
     _templateEditor = null;
     _editingTemplate = null;
     old.dispose();
-    photoEditor.addListener(_editorChanged);
+    editor.addListener(_editorChanged);
     _page = _templateReturnPage;
   }
 
   final _gate = NativeInteractionGate();
-  final _batch = <PhotoAsset>[];
-  final _selected = <String>{};
+  final _session = BatchPhotoSession();
+  List<PhotoAsset> get _batch => _session.photos;
+  Set<String> get _selected => _session.selected;
+  EditorController? _batchEditor;
+  Timer? _batchSaveTimer;
+  int _batchRevision = -1;
+  bool _switchingBatch = false;
+  Map<String, dynamic>? _pendingBatchAction;
+  StylePreset? _pendingBatchStyle;
+
+  void _scheduleBatchSave() {
+    _batchSaveTimer?.cancel();
+    _batchSaveTimer = Timer(const Duration(milliseconds: 400), () {
+      flushBatch().catchError((Object e) {
+        if (!_disposed) editor.inform('批量任务保存失败：${_errorText(e)}');
+      });
+    });
+  }
+
+  Future<void> flushBatch() {
+    _batchSaveTimer?.cancel();
+    return _session.save(photoEditor.directory);
+  }
+
+  Future<void> saveBatchOnBackground() async {
+    if (_batch.isEmpty) return;
+    try {
+      await flushBatch();
+    } catch (error) {
+      if (!_disposed) editor.inform('批量任务保存失败：${_errorText(error)}');
+    }
+  }
+
+  Future<void> _editBatchPhoto(String id, {required bool collapse}) async {
+    final photo = _batch.where((p) => p.id == id).firstOrNull;
+    if (photo == null) throw const FormatException('批量照片不存在');
+    if (_batchEditor?.asset.id == id) {
+      if (collapse) _session.expanded = false;
+      await flushBatch();
+      return;
+    }
+    cancelInteraction();
+    final previous = _batchEditor;
+    final next = EditorController(
+      testMode: photoEditor.testMode,
+      writesDrafts: false,
+      remembersDesign: false,
+    );
+    _switchingBatch = true;
+    try {
+      final history = _session.histories[id]!;
+      await next.initializePhotoSessionFrom(photoEditor, photo, history);
+      if (_disposed) {
+        next.dispose();
+        return;
+      }
+    } catch (_) {
+      next.dispose();
+      rethrow;
+    } finally {
+      _switchingBatch = false;
+    }
+    editor.removeListener(_editorChanged);
+    _batchEditor = next;
+    _batchRevision = next.revision;
+    _session.histories[id] = next.history;
+    _session.lastPhoto = id;
+    if (collapse) _session.expanded = false;
+    next.addListener(_editorChanged);
+    _lastEditorMessage = next.message;
+    previous?.dispose();
+    _page = 'editor';
+    await flushBatch();
+  }
+
+  Future<void> _finishBatchPhoto() async {
+    await flushBatch();
+    final previous = _batchEditor!;
+    previous.removeListener(_editorChanged);
+    _batchEditor = null;
+    previous.dispose();
+    photoEditor.addListener(_editorChanged);
+    _lastEditorMessage = photoEditor.message;
+    _page = 'batch';
+  }
+
   final _selectedDrafts = <String>{};
   final _selectedWatermarks = <String>{};
   bool _selectingWatermarks = false;
@@ -172,10 +259,11 @@ class NativeUiBridge extends ChangeNotifier {
       'ready': !editor.loading && editor.renderAssets != null,
       'busy': busy,
       'appUpdate': {
-        'checking': _checkingUpdate,
+        'checking': _checkingUpdate && _manualUpdateFeedback,
         'opening': _openingUpdate,
         'available': _availableUpdate != null,
         'versionName': _availableUpdate?.versionName ?? '',
+        'releaseNotes': _availableUpdate?.releaseNotes ?? '',
       },
       'operation': {
         'active': _operationBusy && _operationTitle != null,
@@ -299,15 +387,26 @@ class NativeUiBridge extends ChangeNotifier {
         ],
       },
       'batch': {
+        'active': _batchEditor != null,
+        'currentId': _session.lastPhoto,
+        'expanded': _session.expanded,
+        'defaultPackage': _session.defaultDesign?.packageId,
+        'pendingContent': _session.pendingContent[_session.lastPhoto],
+        'confirmContent': _pendingBatchAction != null,
+        'confirmStyle': _pendingBatchStyle?.title,
         'items': [
           for (final photo in _batch)
             {
               'id': photo.id,
-              'title': _photoTitle(photo),
+              'title': photo.originalName?.trim().isNotEmpty == true
+                  ? photo.originalName
+                  : _photoTitle(photo),
               'image': photo.preview,
               'width': photo.width,
               'height': photo.height,
               'selected': _selected.contains(photo.id),
+              'adjusted': _session.histories[photo.id]?.canUndo == true,
+              'result': _session.results[photo.id],
             },
         ],
         'selectedCount': _selected.length,
@@ -842,6 +941,11 @@ class NativeUiBridge extends ChangeNotifier {
     final directory = editor.directory;
     if (directory == null || directory.path == _settingsDirectory) return;
     _settingsDirectory = directory.path;
+    try {
+      await _session.load(directory);
+    } on FormatException catch (e) {
+      editor.inform(e.message);
+    }
     for (final name in [
       'ui-settings.json',
       'ui-settings.json.bak',
@@ -888,6 +992,15 @@ class NativeUiBridge extends ChangeNotifier {
 
   void _editorChanged() {
     if (_disposed) return;
+    final active = _batchEditor;
+    if (active != null &&
+        !active.history.interacting &&
+        active.revision != _batchRevision) {
+      _batchRevision = active.revision;
+      _session.histories[active.asset.id] = active.history;
+      _session.results.remove(active.asset.id);
+      _scheduleBatchSave();
+    }
     final watermarkIds = photoEditor.allStyles.map((style) => style.id).toSet();
     _selectedWatermarks.removeWhere((id) => !watermarkIds.contains(id));
     if (watermarkIds.isEmpty) _selectingWatermarks = false;
@@ -958,11 +1071,22 @@ class NativeUiBridge extends ChangeNotifier {
       ? error.message
       : error.toString();
 
-  Future<void> _checkForUpdates() async {
-    if (_checkingUpdate || _openingUpdate) return;
-    if (_page != 'settings') throw const FormatException('请在设置页检查更新');
+  Future<void> _checkForUpdates({bool onLaunch = false}) async {
+    if (!onLaunch && _page != 'settings') {
+      throw const FormatException('请在设置页检查更新');
+    }
+    if (_openingUpdate || _availableUpdate != null) return;
+    if (_checkingUpdate) {
+      if (onLaunch) {
+        _launchUpdate = true;
+      } else {
+        _manualUpdateFeedback = true;
+      }
+      return;
+    }
     _checkingUpdate = true;
-    _availableUpdate = null;
+    _launchUpdate = onLaunch;
+    _manualUpdateFeedback = !onLaunch;
     publish();
     try {
       final raw = await NativeBridge.call<Map>('app.updateInfo');
@@ -971,19 +1095,24 @@ class NativeUiBridge extends ChangeNotifier {
       final update = await _updateService.check(
         InstalledAppVersion.fromNative(raw),
       );
-      if (_disposed || _page != 'settings') return;
-      _availableUpdate = update;
-      if (update == null) {
+      if (_disposed) return;
+      final showManualResult = _manualUpdateFeedback && _page == 'settings';
+      if (update != null && (_launchUpdate || showManualResult)) {
+        _availableUpdate = update;
+      } else if (update == null && showManualResult) {
         _message = '已是最新版本';
         _messageId++;
       }
-    } on UpdateCheckException catch (error) {
-      if (!_disposed && _page == 'settings') _failure(error.userMessage);
-    } catch (_) {
-      if (!_disposed && _page == 'settings') _failure('检查更新失败，请稍后重试');
+    } catch (error) {
+      if (!_disposed && _manualUpdateFeedback && _page == 'settings') {
+        _failure(
+          error is UpdateCheckException ? error.userMessage : '检查更新失败，请稍后重试',
+        );
+      }
     } finally {
       if (!_disposed) {
         _checkingUpdate = false;
+        _manualUpdateFeedback = false;
         publish();
       }
     }
@@ -992,7 +1121,7 @@ class NativeUiBridge extends ChangeNotifier {
   Future<void> _openUpdate() async {
     if (_openingUpdate) return;
     final update = _availableUpdate;
-    if (_page != 'settings' || update == null) {
+    if (update == null) {
       throw const FormatException('请先检查更新');
     }
     _openingUpdate = true;
@@ -1057,6 +1186,9 @@ class NativeUiBridge extends ChangeNotifier {
     'experiments',
   };
   static const _allowedWhileBusy = {
+    'app.checkUpdateOnLaunch',
+    'settings.openUpdate',
+    'settings.dismissUpdate',
     'parameterIcon.load',
     'material.changed',
     'sync',
@@ -1077,6 +1209,24 @@ class NativeUiBridge extends ChangeNotifier {
       if (command['version'] != 1) throw const FormatException('不支持此界面协议版本');
       final action = command['action'];
       if (action is! String) throw const FormatException('命令缺少操作名称');
+      if ((_switchingBatch || (_batchEditor != null && busy)) &&
+          (action == 'navigate' || action == 'navigate.back')) {
+        return _failure('请等待当前任务完成');
+      }
+      if (_batchEditor != null &&
+          _session.pendingContent.containsKey(_session.lastPhoto) &&
+          {
+            'batch.edit',
+            'batch.done',
+            'batch.exportCurrent',
+            'navigate.back',
+            'style.apply',
+          }.contains(action) &&
+          _page == 'editor') {
+        _pendingBatchAction = Map.of(command);
+        publish();
+        return {'ok': true};
+      }
       if (busy && !_allowedWhileBusy.contains(action)) {
         return _failure('请等待当前任务完成');
       }
@@ -1096,6 +1246,9 @@ class NativeUiBridge extends ChangeNotifier {
       }
       if (_templateEditor != null &&
           !{
+            'app.checkUpdateOnLaunch',
+            'settings.openUpdate',
+            'settings.dismissUpdate',
             'sync',
             'navigate.back',
             'template.save',
@@ -1258,7 +1411,11 @@ class NativeUiBridge extends ChangeNotifier {
           cancelInteraction();
           if (_page == 'editor' &&
               !['editor', 'watermarks', 'styles'].contains(page)) {
-            await editor.finishPhotoEditing();
+            if (_batchEditor != null) {
+              await _finishBatchPhoto();
+            } else {
+              await editor.finishPhotoEditing();
+            }
           }
           if (page == 'editor' && !editor.hasPhoto) {
             _message = '请选择照片';
@@ -1274,6 +1431,11 @@ class NativeUiBridge extends ChangeNotifier {
             _cancelWatermarkSelection();
           }
         case 'navigate.back':
+          if (_pendingBatchAction != null || _pendingBatchStyle != null) {
+            _pendingBatchAction = null;
+            _pendingBatchStyle = null;
+            break;
+          }
           if (_selectingWatermarks &&
               ['watermarks', 'styles'].contains(_page)) {
             _cancelWatermarkSelection();
@@ -1288,6 +1450,10 @@ class NativeUiBridge extends ChangeNotifier {
             break;
           }
           cancelInteraction();
+          if (_page == 'editor' && _batchEditor != null) {
+            await _exclusive(_finishBatchPhoto, title: null);
+            break;
+          }
           if (_page == 'editor') await editor.finishPhotoEditing();
           _page = _page == 'watermarks'
               ? _pickerReturnPage
@@ -1376,6 +1542,13 @@ class NativeUiBridge extends ChangeNotifier {
               ? 'batch'
               : 'editor';
           cancelInteraction();
+          if (destination == 'batch') {
+            if (_batch.isNotEmpty && _selected.isEmpty) {
+              throw const FormatException('请先勾选要应用水印的照片');
+            }
+            _pendingBatchStyle = style;
+            break;
+          }
           await _exclusive(() => editor.applyStyle(style), title: '正在准备水印…');
           if (command['stayOnPage'] != true) {
             _page = destination == 'editor' && !editor.hasPhoto
@@ -1590,21 +1763,119 @@ class NativeUiBridge extends ChangeNotifier {
           if (!_adjust(command)) return _failure('调整事件已过期，请重新操作');
         case 'interaction.cancel':
           _gate.clear();
+          // Native tabs cancel any pending drag before changing panels. An idle
+          // switch has no document change to send back across the platform channel.
+          if (!editor.history.interacting) return {'ok': true};
           editor.cancel();
         case 'batch.add':
           await _photoImport(() async {
             final photos = await editor.pick(multiple: true);
             for (final photo in photos) {
-              if (!_batch.any((p) => p.id == photo.id)) _batch.add(photo);
+              if (!_session.histories.containsKey(photo.id)) {
+                _session.defaultDesign ??= batchDesignForPhoto(
+                  photoEditor.document,
+                );
+                _session.histories[photo.id] = EditHistory(
+                  restoreKnownEdit(
+                        photo.restoredDocument,
+                        photoEditor.allStyles,
+                      ) ??
+                      _session.defaultDesign!,
+                );
+                _batch.add(photo);
+              }
               _selected.add(photo.id);
             }
+            if (photos.isNotEmpty) await flushBatch();
           });
+        case 'batch.edit':
+          if (_page != 'batch' && (_page != 'editor' || _batchEditor == null)) {
+            throw const FormatException('请先进入批量任务');
+          }
+          await _exclusive(
+            () => _editBatchPhoto(
+              command['id'] as String,
+              collapse: command['collapse'] == true,
+            ),
+            title: null,
+          );
+        case 'batch.done':
+          if (_batchEditor == null) throw const FormatException('请先打开批量照片');
+          cancelInteraction();
+          await _exclusive(_finishBatchPhoto, title: null);
+        case 'batch.tray':
+          if (_batchEditor == null) break;
+          _session.expanded = command['expanded'] == true;
+          _scheduleBatchSave();
+        case 'batch.stageContent':
+          if (_batchEditor?.asset.id != command['id'] || _batchEditor == null) {
+            break;
+          }
+          final fields = _map(command['fields']);
+          if (fields.isEmpty) {
+            _session.pendingContent.remove(command['id']);
+          } else {
+            _session.pendingContent[command['id'] as String] = fields;
+          }
+          _scheduleBatchSave();
+        case 'batch.resolveContent':
+          final pending = _pendingBatchAction;
+          if (pending == null) break;
+          final decision = command['decision'];
+          if (decision == 'apply') {
+            _applyBatchContent();
+          } else if (decision == 'discard') {
+            _session.pendingContent.remove(_session.lastPhoto);
+          } else {
+            _pendingBatchAction = null;
+            break;
+          }
+          _pendingBatchAction = null;
+          _scheduleBatchSave();
+          return await handleCommand(pending);
+        case 'batch.applyContent':
+          _applyBatchContent();
+          _scheduleBatchSave();
+        case 'batch.confirmStyle':
+          final style = _pendingBatchStyle;
+          if (style == null) break;
+          if (command['confirmed'] == true) {
+            final design =
+                await photoEditor.templatePreferences?.remembered(
+                  style.document.packageId.isEmpty
+                      ? style.id
+                      : style.document.packageId,
+                  style.document,
+                ) ??
+                style.document;
+            if (design.staruwPreserved) {
+              throw const FormatException('此水印不能用于照片');
+            }
+            for (final id in _selected) {
+              final history = _session.histories[id]!;
+              history.apply(
+                batchDesignForPhoto(design, history.current),
+                '应用${style.title}',
+              );
+              _session.results.remove(id);
+            }
+            _session.defaultDesign = batchDesignForPhoto(design);
+            _page = 'batch';
+            await flushBatch();
+          }
+          _pendingBatchStyle = null;
+        case 'batch.exportCurrent':
+          if (_batchEditor == null) throw const FormatException('请先打开批量照片');
+          await _exclusive(() async {
+            await editor.export();
+          }, title: null);
         case 'batch.toggle':
           final id = command['id'];
           if (!_batch.any((p) => p.id == id)) {
             throw const FormatException('批量照片不存在');
           }
           if (!_selected.remove(id)) _selected.add(id as String);
+          _scheduleBatchSave();
         case 'batch.selectAll':
           if (command['selected'] is! bool) {
             throw const FormatException('无效选择状态');
@@ -1613,27 +1884,30 @@ class NativeUiBridge extends ChangeNotifier {
           if (command['selected'] == true) {
             _selected.addAll(_batch.map((p) => p.id));
           }
+          _scheduleBatchSave();
         case 'batch.removeSelected':
           // Queue references only: never release photo files, drafts or resources.
           // The command-wide busy guard also protects import/export snapshots.
           if (_selected.isNotEmpty) {
-            _batch.removeWhere((photo) => _selected.contains(photo.id));
-            _selected.clear();
+            _session.removeSelected();
             _completed = 0;
             _total = 0;
             _failed = 0;
             _cancelled = false;
             _message = '';
+            await flushBatch();
           }
         case 'batch.export':
           cancelInteraction();
-          await _exportBatch();
+          await _exportBatch(failedOnly: command['failedOnly'] == true);
         case 'batch.cancel':
           if (_batchRunning) _cancelled = true;
         case 'settings.update':
           await _updateSettings(_map(command['patch']));
         case 'settings.checkUpdate':
           await _checkForUpdates();
+        case 'app.checkUpdateOnLaunch':
+          await _checkForUpdates(onLaunch: true);
         case 'settings.dismissUpdate':
           _availableUpdate = null;
         case 'settings.openUpdate':
@@ -1647,7 +1921,10 @@ class NativeUiBridge extends ChangeNotifier {
         default:
           throw const FormatException('未知操作');
       }
-      if (_page != 'settings') _availableUpdate = null;
+      if (_page != 'settings') {
+        _manualUpdateFeedback = false;
+        if (!_launchUpdate) _availableUpdate = null;
+      }
       publish();
       return {'ok': true};
     } catch (error) {
@@ -2107,13 +2384,35 @@ class NativeUiBridge extends ChangeNotifier {
     return true;
   }
 
-  Future<void> _exportBatch() async {
+  void _applyBatchContent() {
+    final fields = _session.pendingContent[_session.lastPhoto];
+    if (fields == null || _batchEditor == null) return;
+    final patch = <String, dynamic>{
+      for (final key in ['modelOverride', 'caption'])
+        if (fields.containsKey(key)) key: fields[key],
+    };
+    final exif = {
+      ...?editor.document.xiaomiOptions['exifOverrides'] as Map?,
+      for (final key in ['focal', 'aperture', 'speed', 'iso'])
+        if (fields.containsKey(key)) key: fields[key],
+    };
+    if (exif.isNotEmpty) patch['xiaomiOptions'] = {'exifOverrides': exif};
+    editor.apply(_patchedDocument(patch), '修改水印内容');
+    _session.pendingContent.remove(_session.lastPhoto);
+  }
+
+  Future<void> _exportBatch({bool failedOnly = false}) async {
     final photos = _batch
-        .where((p) => _selected.contains(p.id))
+        .where(
+          (p) => failedOnly
+              ? _session.results[p.id] == '失败'
+              : _selected.contains(p.id),
+        )
         .toList(growable: false);
     if (photos.isEmpty) throw const FormatException('请先选择要导出的照片');
-    // Freeze the complete style, including package/font bindings, once per job.
-    final style = EditDocument.fromJson(_copy(editor.document.toJson()));
+    final styles = {
+      for (final p in photos) p.id: _session.histories[p.id]!.current,
+    };
     final staticOutput = editor.staticPhotoExport;
     _completed = 0;
     _failed = 0;
@@ -2125,15 +2424,20 @@ class NativeUiBridge extends ChangeNotifier {
       for (final photo in photos) {
         if (_cancelled || _disposed) break;
         try {
+          _session.results[photo.id] = 'saving';
+          await flushBatch();
           await editor.export(
             photo: photo,
-            style: style,
+            style: styles[photo.id]!,
             staticOutput: staticOutput,
           );
+          _session.results[photo.id] = '已导出';
         } catch (_) {
+          _session.results[photo.id] = '失败';
           _failed++;
         }
         _completed++;
+        await flushBatch();
         publish();
       }
     } finally {
@@ -2275,6 +2579,8 @@ class NativeUiBridge extends ChangeNotifier {
     _cancelled = _batchRunning;
     editor.removeListener(_editorChanged);
     _templateEditor?.dispose();
+    _batchEditor?.dispose();
+    _batchSaveTimer?.cancel();
     photoEditor.liveDraftReferences = null;
     if (_attached) channel.setMethodCallHandler(null);
     super.dispose();

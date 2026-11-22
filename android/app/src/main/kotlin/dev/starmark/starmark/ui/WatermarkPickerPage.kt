@@ -34,6 +34,19 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal fun styleRows(state: Map<*, *>): List<Map<*, *>> = (state["styles"] as? List<*>)?.filterIsInstance<Map<*, *>>() ?: emptyList()
 
+/** Geometry of the editor's compact 5:4 preview, including its selection ring. */
+internal object EditorStripDefaults {
+    val ImageHeight = 56.dp
+    val Inset = 4.dp
+    val FrameWidth = ImageHeight * 1.25f + Inset * 2
+    val FrameHeight = ImageHeight + Inset * 2
+    val FrameRadius = 6.dp
+    val ImageRadius = FrameRadius - Inset
+    val Stroke = 2.dp
+    val Gap = 9.dp
+    val Badge = 16.dp
+}
+
 @Composable
 internal fun WatermarkPickerPage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues(),
     galleryRightInset: Dp = 0.dp, editSelectedInPhoto: (() -> Unit)? = null) {
@@ -80,17 +93,18 @@ internal fun WatermarkPickerPage(state: Map<*, *>, command: UiCommand, chromeIns
 
 @Composable
 internal fun WatermarkTile(row: Map<*, *>, selected: Boolean, edge: Dp, accent: Color, enabled: Boolean, height: Dp = edge, modifier: Modifier = Modifier, library: Boolean = false, selecting: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
-    val strip = height == 64.dp
+    val strip = height == EditorStripDefaults.FrameHeight
     val image = if (strip) row.text("stripImage", row.text("image")) else row.text("image")
-    val gap = if (library) 16f else 8f
+    val inset = if (library) 8.dp else EditorStripDefaults.Inset
+    val gap = inset.value * 2
     var aspect by remember(image) { mutableFloatStateOf(if (row.text("id").startsWith("factory-")) 1.25f else (edge.value - gap) / (height.value - gap)) }
-    val shape = MiuixCornerShape(if (strip) 6.dp else 12.dp)
+    val shape = MiuixCornerShape(if (strip) EditorStripDefaults.FrameRadius else 12.dp)
     val interactionSource = remember(row.text("id")) { MutableInteractionSource() }
     Box(
         modifier.sizeIn(maxWidth = edge, maxHeight = height)
             .stockPress(interactionSource, StockPressKind.Watermark, enabled)
             .clip(shape)
-            .then(if (selected) Modifier.border(BorderStroke(if (library) 4.dp else 2.dp, accent), shape) else Modifier)
+            .then(if (selected) Modifier.border(BorderStroke(if (library) 4.dp else EditorStripDefaults.Stroke, accent), shape) else Modifier)
             .combinedClickable(interactionSource = interactionSource, indication = null, enabled = enabled, role = Role.Button, onClickLabel = if (selecting && selected) "取消选择水印" else if (!selecting && library && selected) "编辑模板" else "选择水印", onLongClickLabel = if (onLongClick != null) "选择水印" else null, onLongClick = onLongClick,
                 onClick = hapticClick(if (selecting) toggleHaptic(selected) else if (library && selected) HapticFeedbackType.ContextClick else HapticFeedbackType.SegmentTick,
                     feedbackEnabled = library || !selected, onClick = onClick))
@@ -99,20 +113,20 @@ internal fun WatermarkTile(row: Map<*, *>, selected: Boolean, edge: Dp, accent: 
     ) {
         // Fit the actual bitmap inside the available constraints first; the same
         // inset then defines every edge of the ring, even on a short editor pane.
-        PhotoThumbnail(image, Modifier.padding((gap / 2).dp).aspectRatio(aspect), description = row.text("title"), contentScale = androidx.compose.ui.layout.ContentScale.Fit, cornerRadius = if (strip) 2.dp else if (library) 4.dp else 8.dp,
+        PhotoThumbnail(image, Modifier.padding(inset).aspectRatio(aspect), description = row.text("title"), contentScale = androidx.compose.ui.layout.ContentScale.Fit, cornerRadius = if (strip) EditorStripDefaults.ImageRadius else if (library) 4.dp else 8.dp,
             onAspectRatio = { if (it.isFinite() && it > 0f) aspect = it })
         if (selecting) Box(Modifier.matchParentSize()) {
             Checkbox(if (selected) ToggleableState.On else ToggleableState.Off, onClick = onClick, enabled = enabled,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).testTag("watermark.checked.${row.text("id")}"))
         } else if (selected) Box(Modifier.matchParentSize()) {
-            WatermarkConfigBadge(if (library) Modifier.align(Alignment.Center).size(32.dp).testTag("watermarks.edit.${row.text("id")}") else Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp))
+            WatermarkConfigBadge(if (library) Modifier.align(Alignment.Center).size(32.dp).testTag("watermarks.edit.${row.text("id")}") else Modifier.align(Alignment.TopEnd).padding(8.dp).size(EditorStripDefaults.Badge))
         }
     }
 }
 
 /** Exact 16x16 config badge from drawable/photo_watermark_menu_item_icon_config (res/0Vb.xml). */
 @Composable
-private fun WatermarkConfigBadge(modifier: Modifier) {
+internal fun WatermarkConfigBadge(modifier: Modifier) {
     val background = remember { androidx.compose.ui.graphics.Path().apply { addG2Rect(16f, 16f, 2f) } }
     val pencil = remember { PathParser().parsePathString("M4.542,9.047L4.542,10.055C4.542,10.166 4.632,10.255 4.742,10.255L5.75,10.255C5.882,10.255 6.009,10.203 6.103,10.109L11.082,5.131C11.16,5.052 11.16,4.926 11.082,4.848L9.925,3.692C9.847,3.613 9.72,3.614 9.642,3.692L4.687,8.695C4.594,8.789 4.542,8.915 4.542,9.047Z").toPath() }
     Canvas(modifier) {

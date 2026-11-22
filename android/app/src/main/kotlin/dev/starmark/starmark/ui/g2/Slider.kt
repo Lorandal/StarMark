@@ -3,7 +3,8 @@
 
 package dev.starmark.starmark.ui.g2
 
-// Adapted from Miuix 0.9.4: only track geometry changes; interaction and accessibility stay upstream.
+// Adapted from Miuix 0.9.4 for StarMark's track geometry and motion.
+import dev.starmark.starmark.ui.LocalStarMarkEffects
 import dev.starmark.starmark.ui.MiuixCornerShape
 import dev.starmark.starmark.ui.drawG2Track
 import dev.starmark.starmark.ui.drawG2Rect
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.Path
 
 import androidx.annotation.IntRange
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -30,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -126,16 +129,9 @@ fun Slider(
 
     val coercedValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
 
-    val progressAnimationSpec = remember(isDragging) {
-        if (isDragging) {
-            spring(dampingRatio = 0.9f, stiffness = 1755f)
-        } else {
-            spring<Float>(dampingRatio = 0.96f, stiffness = 322f)
-        }
-    }
-
-    val animatedValueState = animateFloatAsState(coercedValue, progressAnimationSpec)
-    val thumbScaleState = animateFloatAsState(if (isPressed || isDragging || isHoveringThumb) 1.127f else 1f, ThumbScaleAnimationSpec)
+    val reduced = LocalStarMarkEffects.current.reduceMotion
+    val animatedValueState = sliderPosition(coercedValue, isDragging || reduced)
+    val thumbScaleState = sliderThumbScale(isPressed || isDragging || isHoveringThumb, reduced)
 
     val stepFractions = remember(steps) { stepsToTickFractions(steps) }
 
@@ -159,9 +155,6 @@ fun Slider(
         }
     }
 
-    val currentLayoutWidth = layoutWidth
-    val currentLayoutHeight = layoutHeight
-
     Box(
         modifier = modifier
             .then(
@@ -171,7 +164,7 @@ fun Slider(
                             layoutWidth = it.width
                             layoutHeight = it.height
                         }
-                        .pointerInput(effectiveReverseDirection, valueRange) {
+                        .pointerInput(effectiveReverseDirection, valueRange, animatedValueState) {
                             awaitPointerEventScope {
                                 while (true) {
                                     val event = awaitPointerEvent()
@@ -185,8 +178,8 @@ fun Slider(
                                         continue
                                     }
 
-                                    val thumbRadius = currentLayoutHeight / 2f
-                                    val availableWidth = (currentLayoutWidth - 2f * thumbRadius).coerceAtLeast(0f)
+                                    val thumbRadius = size.height / 2f
+                                    val availableWidth = (size.width - 2f * thumbRadius).coerceAtLeast(0f)
                                     val knobRadius = thumbRadius * 0.72f
                                     val hitRadius = knobRadius + (thumbRadius * 0.5f)
 
@@ -332,16 +325,9 @@ fun VerticalSlider(
 
     val coercedValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
 
-    val progressAnimationSpec = remember(isDragging) {
-        if (isDragging) {
-            spring(dampingRatio = 0.9f, stiffness = 1755f)
-        } else {
-            spring<Float>(dampingRatio = 0.96f, stiffness = 322f)
-        }
-    }
-
-    val animatedValueState = animateFloatAsState(coercedValue, progressAnimationSpec)
-    val thumbScaleState = animateFloatAsState(if (isPressed || isDragging || isHoveringThumb) 1.127f else 1f, ThumbScaleAnimationSpec)
+    val reduced = LocalStarMarkEffects.current.reduceMotion
+    val animatedValueState = sliderPosition(coercedValue, isDragging || reduced)
+    val thumbScaleState = sliderThumbScale(isPressed || isDragging || isHoveringThumb, reduced)
 
     val stepFractions = remember(steps) { stepsToTickFractions(steps) }
 
@@ -365,9 +351,6 @@ fun VerticalSlider(
         }
     }
 
-    val currentLayoutWidth = layoutWidth
-    val currentLayoutHeight = layoutHeight
-
     Box(
         modifier = modifier
             .then(
@@ -377,7 +360,7 @@ fun VerticalSlider(
                             layoutWidth = it.width
                             layoutHeight = it.height
                         }
-                        .pointerInput(reverseDirection, valueRange) {
+                        .pointerInput(reverseDirection, valueRange, animatedValueState) {
                             awaitPointerEventScope {
                                 while (true) {
                                     val event = awaitPointerEvent()
@@ -391,8 +374,8 @@ fun VerticalSlider(
                                         continue
                                     }
 
-                                    val thumbRadius = currentLayoutWidth / 2f
-                                    val availableHeight = (currentLayoutHeight - 2f * thumbRadius).coerceAtLeast(0f)
+                                    val thumbRadius = size.width / 2f
+                                    val availableHeight = (size.height - 2f * thumbRadius).coerceAtLeast(0f)
                                     val knobRadius = thumbRadius * 0.72f
                                     val hitRadius = knobRadius + (thumbRadius * 0.5f)
 
@@ -549,21 +532,11 @@ fun RangeSlider(
     val coercedStart = currentStartValue.coerceIn(valueRange.start, valueRange.endInclusive)
     val coercedEnd = currentEndValue.coerceIn(valueRange.start, valueRange.endInclusive)
 
-    val progressAnimationSpec = remember(isDragging) {
-        if (isDragging) {
-            spring(dampingRatio = 0.9f, stiffness = 1755f)
-        } else {
-            spring<Float>(dampingRatio = 0.96f, stiffness = 322f)
-        }
-    }
-
-    val animatedStartValueState = animateFloatAsState(coercedStart, progressAnimationSpec)
-    val animatedEndValueState = animateFloatAsState(coercedEnd, progressAnimationSpec)
-    val startThumbScaleState = animateFloatAsState(
-        if (isDraggingStart || isPressed || isHoveringStartThumb) 1.127f else 1f,
-        ThumbScaleAnimationSpec,
-    )
-    val endThumbScaleState = animateFloatAsState(if (isDraggingEnd || isPressed || isHoveringEndThumb) 1.127f else 1f, ThumbScaleAnimationSpec)
+    val reduced = LocalStarMarkEffects.current.reduceMotion
+    val animatedStartValueState = sliderPosition(coercedStart, isDragging || reduced)
+    val animatedEndValueState = sliderPosition(coercedEnd, isDragging || reduced)
+    val startThumbScaleState = sliderThumbScale(isDraggingStart || isPressed || isHoveringStartThumb, reduced)
+    val endThumbScaleState = sliderThumbScale(isDraggingEnd || isPressed || isHoveringEndThumb, reduced)
 
     val stepFractions = remember(steps) { stepsToTickFractions(steps) }
 
@@ -587,9 +560,6 @@ fun RangeSlider(
         }
     }
 
-    val currentLayoutWidth = layoutWidth
-    val currentLayoutHeight = layoutHeight
-
     Box(
         modifier = modifier
             .then(
@@ -599,7 +569,7 @@ fun RangeSlider(
                             layoutWidth = it.width
                             layoutHeight = it.height
                         }
-                        .pointerInput(isRtl, valueRange) {
+                        .pointerInput(isRtl, valueRange, animatedStartValueState, animatedEndValueState) {
                             awaitPointerEventScope {
                                 while (true) {
                                     val event = awaitPointerEvent()
@@ -614,8 +584,8 @@ fun RangeSlider(
                                         continue
                                     }
 
-                                    val thumbRadius = currentLayoutHeight / 2f
-                                    val availableWidth = (currentLayoutWidth - 2f * thumbRadius).coerceAtLeast(0f)
+                                    val thumbRadius = size.height / 2f
+                                    val availableWidth = (size.width - 2f * thumbRadius).coerceAtLeast(0f)
                                     val knobRadius = thumbRadius * 0.72f
                                     val hitRadius = knobRadius + (thumbRadius * 0.5f)
 
@@ -844,7 +814,7 @@ private fun SliderTrack(
     val trackPath = remember { Path() }
     val backgroundAlpha by animateFloatAsState(
         targetValue = if (isDragging) 0.044f else 0f,
-        animationSpec = tween(150),
+        animationSpec = if (LocalStarMarkEffects.current.reduceMotion) snap() else tween(150),
         label = "SliderTrackAlpha",
     )
 
@@ -946,7 +916,7 @@ private fun RangeSliderTrack(
     val trackPath = remember { Path() }
     val backgroundAlpha by animateFloatAsState(
         targetValue = if (isDragging) 0.044f else 0f,
-        animationSpec = tween(150),
+        animationSpec = if (LocalStarMarkEffects.current.reduceMotion) snap() else tween(150),
         label = "RangeSliderTrackAlpha",
     )
 
@@ -1281,7 +1251,16 @@ private fun resolveValueFromFraction(
     }
 }
 
+private val SliderSettleSpring = spring<Float>(dampingRatio = .96f, stiffness = 322f)
 private val ThumbScaleAnimationSpec = spring<Float>(dampingRatio = 0.6f, stiffness = 987f)
+
+@Composable
+private fun sliderPosition(value: Float, direct: Boolean): State<Float> =
+    if (direct) rememberUpdatedState(value) else animateFloatAsState(value, SliderSettleSpring)
+
+@Composable
+private fun sliderThumbScale(pressed: Boolean, reduced: Boolean): State<Float> =
+    if (reduced) rememberUpdatedState(1f) else animateFloatAsState(if (pressed) 1.127f else 1f, ThumbScaleAnimationSpec)
 
 private fun horizontalVisualFraction(offsetX: Float, sizeWidth: Int, sizeHeight: Int): Float {
     val thumbRadius = sizeHeight / 2f

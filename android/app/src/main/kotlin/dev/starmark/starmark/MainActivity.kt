@@ -67,6 +67,11 @@ internal fun updateSystemBarAppearance(window: Window, background: Int) {
 }
 
 class MainActivity : FlutterFragmentActivity() {
+    private companion object {
+        // The channel runs on the main thread. Activity recreation in this process is a warm launch.
+        var launchUpdatePending = true
+    }
+
     private val executor = Executors.newSingleThreadExecutor()
     private val pickedZipCopies = mutableSetOf<String>()
     private var pendingPicker: MethodChannel.Result? = null
@@ -121,7 +126,9 @@ class MainActivity : FlutterFragmentActivity() {
                                 updateCanvasPresentation(0f)
                             },
                             onEditorViewport = { photo, surface, bias ->
-                                host.updateViewport(photo, surface)
+                                val inBatch = (uiState["batch"] as? Map<*, *>)?.get("active") == true
+                                host.updateCanvasClip(null, 0f)
+                                host.updateViewport(photo, surface, batchFitBias = bias.takeIf { inBatch })
                                 updateCanvasPresentation(bias)
                             },
                             onCanvasClip = host::updateCanvasClip,
@@ -213,6 +220,10 @@ class MainActivity : FlutterFragmentActivity() {
                         uiState = snapshot.toMap()
                         result.success(null)
                         updateCanvasPresentation(canvasHorizontalBias)
+                        if (launchUpdatePending && snapshot["ready"] == true && snapshot["busy"] != true) {
+                            launchUpdatePending = false
+                            sendUiCommand("app.checkUpdateOnLaunch", emptyMap())
+                        }
                     }
                 }
             }

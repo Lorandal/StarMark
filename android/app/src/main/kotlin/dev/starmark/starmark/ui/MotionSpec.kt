@@ -1,5 +1,6 @@
 package dev.starmark.starmark.ui
 
+import androidx.compose.runtime.withFrameNanos
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -12,6 +13,18 @@ import kotlin.math.sqrt
 /** Folme's second argument is the oscillator period in seconds, not Compose stiffness. */
 internal data class FolmeSpring(val damping: Float, val response: Float) {
     val stiffness: Float get() = ((2.0 * PI / max(response.toDouble(), .08)).let { it * it }).toFloat()
+}
+
+/** Analytic springs can advance over the entire display interval, including a missed frame. */
+internal suspend fun runMotionFrames(durationScale: Float, running: () -> Boolean, step: (Float) -> Unit) {
+    if (durationScale <= 0f || !running()) return
+    var previous = withFrameNanos { it }
+    while (running()) {
+        withFrameNanos { now ->
+            step((now - previous) / 1_000_000_000f / durationScale)
+            previous = now
+        }
+    }
 }
 
 /** FileExplorer SearchActionModeView's 400ms SpringInterpolator(.98, .75). */

@@ -3,6 +3,7 @@ package dev.starmark.starmark.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -49,7 +50,8 @@ internal data class ChromePhotoRevision(
 )
 
 internal val LocalChromePhotoCapture = staticCompositionLocalOf<() -> ChromePhotoFrame?> { { null } }
-internal val LocalChromePhotoRevision = staticCompositionLocalOf { ChromePhotoRevision(null, null, null, null) }
+// The batch drawer changes photo geometry on animation frames; only active glass samplers need it.
+internal val LocalChromePhotoRevision = compositionLocalOf { ChromePhotoRevision(null, null, null, null) }
 
 @Composable
 private fun rememberChromePhotoFrame(
@@ -104,7 +106,7 @@ internal fun rememberTemplateHeaderBackdrop(record: Boolean, bounds: State<Rect?
 /** Supplies the sibling Flutter pixels behind a window-sized dialog or a floating editor control. */
 @Composable
 internal fun rememberExternalPhotoBackdrop(record: Boolean, originInWindow: Offset? = null): LayerBackdrop {
-    val photo by rememberChromePhotoFrame(record, LocalChromePhotoRevision.current)
+    val photo = if (record) rememberChromePhotoFrame(true, LocalChromePhotoRevision.current) else null
     val view = LocalView.current
     val windowOrigin = remember(view) { IntArray(2) }
     val paneOrigin by rememberUpdatedState(originInWindow)
@@ -113,7 +115,7 @@ internal fun rememberExternalPhotoBackdrop(record: Boolean, originInWindow: Offs
     // ownership release bitmap storage; recycle() could race the render thread's retained image.
     return key(record) {
         rememberLayerBackdrop(onDraw = {
-            if (record) photo?.let { frame ->
+            photo?.value?.let { frame ->
                 val origin = paneOrigin
                 if (origin == null) view.getLocationInWindow(windowOrigin)
                 val x = origin?.x ?: windowOrigin[0].toFloat()
