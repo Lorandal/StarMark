@@ -96,7 +96,7 @@ fun Switch(
     var currentDragInteraction by remember { mutableStateOf<DragInteraction.Start?>(null) }
 
     val capsuleShape = MiuixCornerShape.Capsule
-    val thumbOffsetSpringSpec = remember { spring<Dp>(dampingRatio = 0.7f, stiffness = 987f) }
+    val thumbOffsetSpringSpec = remember { spring<Dp>(dampingRatio = .96f, stiffness = 390f) }
     val thumbScaleSpringSpec = remember { spring<Float>(dampingRatio = 0.6f, stiffness = 987f) }
 
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -124,7 +124,7 @@ fun Switch(
 
     val backgroundColorState = animateColorAsState(
         if (checked) colors.checkedTrackColor(enabled) else colors.uncheckedTrackColor(enabled),
-        animationSpec = if (reduced) snap() else spring(dampingRatio = 0.99f, stiffness = 438.6f),
+        animationSpec = if (reduced) snap() else spring(dampingRatio = .99f, stiffness = if (checked) 140f else 250f),
     )
 
     val hasCallback = onCheckedChange != null

@@ -88,7 +88,12 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
         item {
             Row(Modifier.fillMaxWidth()
                 .heightIn(min = 48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                SmallTitle(if (selecting && selectionInChrome) "已选择 ${selection.integer("selectedCount")} 项" else "最近草稿", Modifier.weight(1f), insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp))
+                val heading = when {
+                    drafts.isEmpty() -> "暂无草稿"
+                    selecting && selectionInChrome -> "已选择 ${selection.integer("selectedCount")} 项"
+                    else -> "最近草稿"
+                }
+                SmallTitle(heading, Modifier.weight(1f), insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp))
                 if (selecting && !selectionInChrome) TextButton("取消", hapticClick { command.send("draft.selection.cancel") }, enabled = !busy, modifier = Modifier.testTag("draft.selection.cancel"), insideMargin = PaddingValues(horizontal = 8.dp, vertical = 8.dp))
                 if (drafts.isNotEmpty() && !selectionInChrome) {
                     IconButton(hapticClick(toggleHaptic(selection.flag("allSelected"))) { command.send("draft.selection.all", "selected" to !selection.flag("allSelected")) }, enabled = !busy, modifier = Modifier.size(48.dp).testTag("draft.selection.all")) {
@@ -100,7 +105,6 @@ internal fun HomePage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddin
                 }
             }
         }
-        if (drafts.isEmpty()) item { Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp), insideMargin = PaddingValues(16.dp)) { Text("暂无草稿") } }
         items(drafts, key = { it.text("id") }) { draft ->
             val interaction = remember(draft.text("id")) { MutableInteractionSource() }
             val updated = draft.text("updated")
@@ -262,16 +266,17 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
             verticalArrangement = Arrangement.spacedBy(gridGap), horizontalArrangement = Arrangement.spacedBy(gridGap)) {
             item(key = "summary", span = fullRow) {
                 EditorSettingsCard(Modifier.testTag("batch.summary"), insideMargin = cardPadding) {
-                    Row(Modifier.fillMaxWidth().heightIn(min = EditorSettingsDefaults.RowMinHeight),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gridGap)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("已选 $count 张", fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                            Text("共 ${photos.size} 张照片", fontSize = 14.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    if (photos.isEmpty()) {
+                        MainButton("添加照片", "batch.add", !busy,
+                            Modifier.heightIn(min = EditorSettingsDefaults.TouchTarget), glassMaterial = true) { command.send("batch.add") }
+                    } else {
+                        Row(Modifier.fillMaxWidth().heightIn(min = EditorSettingsDefaults.RowMinHeight),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gridGap)) {
+                            Text("已选 $count 张，共 ${photos.size} 张", modifier = Modifier.weight(1f),
+                                fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                            TextButton("添加照片", hapticClick { command.send("batch.add") }, enabled = !busy,
+                                minHeight = EditorSettingsDefaults.TouchTarget, modifier = Modifier.testTag("batch.add"))
                         }
-                        TextButton("添加照片", hapticClick { command.send("batch.add") }, enabled = !busy,
-                            minHeight = EditorSettingsDefaults.TouchTarget, modifier = Modifier.testTag("batch.add"))
-                    }
-                    if (photos.isNotEmpty()) {
                         val resume = photos.firstOrNull { it.text("id") == batch.text("currentId") } ?: photos.first()
                         Spacer(Modifier.height(gridGap))
                         MainButton(if (batch.text("currentId").isEmpty()) "逐张编辑" else "继续逐张编辑", "batch.resume", !busy,
@@ -283,7 +288,7 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
             }
             item(key = "watermarkStyle", span = fullRow) {
                 EditorSettingsCard {
-                    ArrowPreference(if (photos.isEmpty()) "水印样式" else "统一选中照片的水印",
+                    ArrowPreference(if (photos.isEmpty()) "新照片的水印" else "统一选中照片的水印",
                         summary = if (!watermarkEnabled) "无水印" else selectedStyle?.text("title") ?: "当前编辑样式",
                         enabled = !busy, modifier = Modifier.heightIn(min = EditorSettingsDefaults.RowMinHeight).testTag("batch.styles"),
                         insideMargin = EditorSettingsDefaults.RowPadding,
@@ -306,7 +311,7 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                     if (running) TextButton("停止后续照片", hapticClick { command.send("batch.cancel") }, Modifier.fillMaxWidth().padding(top = 8.dp).testTag("batch.cancel"))
                 }
             }
-            item(key = "actions", span = fullRow) {
+            if (photos.isNotEmpty()) item(key = "actions", span = fullRow) {
                 Row(Modifier.fillMaxWidth().testTag("batch.actions"), verticalAlignment = Alignment.CenterVertically) {
                     HapticCheckboxPreference("全选照片", checked = allSelected,
                         onCheckedChange = { command.send("batch.selectAll", "selected" to it) },
@@ -353,16 +358,9 @@ internal fun BatchPage(state: Map<*, *>, command: UiCommand, chromeInsets: Paddi
                     }
                 }
             }
-            if (photos.isEmpty()) item(key = "empty", span = fullRow) {
-                Box(Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
-                    SupportingText("添加照片后即可批量导出")
-                }
-            }
-            item(key = "export", span = fullRow) {
+            if (photos.isNotEmpty()) item(key = "export", span = fullRow) {
                 EditorSettingsCard(insideMargin = cardPadding) {
-                    Text("按各自的水印导出", fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.height(12.dp))
-                    MainButton("导出选中照片（$count 张）", "batch.export", !busy && count > 0,
+                    MainButton("按各自水印导出所选 $count 张", "batch.export", !busy && count > 0,
                         Modifier.heightIn(min = EditorSettingsDefaults.TouchTarget), glassMaterial = true) { command.send("batch.export") }
                     if (photos.any { it.text("result") == "失败" }) TextButton("重试失败照片", hapticClick { command.send("batch.export", "failedOnly" to true) }, enabled = !busy)
                 }
@@ -381,54 +379,64 @@ internal fun SettingsPage(state: Map<*, *>, command: UiCommand, chromeInsets: Pa
     var showDetails by rememberSaveable { mutableStateOf(false) }
     val versionInteraction = remember { MutableInteractionSource() }
     val list = rememberLazyListState()
-    val padding = PaddingValues(12.dp).withChromeInsets(chromeInsets)
+    val padding = PaddingValues(EditorSettingsDefaults.PageInset).withChromeInsets(chromeInsets)
     val railInsets = rootRailListInsets(list, padding.calculateBottomPadding(), showDetails)
+    val row = Modifier.heightIn(min = EditorSettingsDefaults.RowMinHeight)
     LazyColumn(Modifier.fillMaxSize().testTag("screen.settings"), state = list,
-        contentPadding = padding.withChromeInsets(railInsets), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { SmallTitle("外观", insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) }
-        item {
-            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
-                ChromeDropdownPreference(listOf("跟随系统", "浅色", "深色"), themes.indexOf(settings.text("theme", "system")).coerceAtLeast(0), "应用主题", modifier = Modifier.testTag("settings.theme"), onSelectedIndexChange = { command.send("settings.update", "patch" to mapOf("theme" to themes[it])) })
-                val effects = LocalStarMarkEffects.current
-                val modes = glassModeChoices(effects.systemGlassSupported)
-                ChromeDropdownPreference(modes.map { it.title }, modes.indexOf(effects.mode).coerceAtLeast(0), "柔光效果", modifier = Modifier.testTag("settings.glass"), onSelectedIndexChange = { index -> command.send("settings.update", "patch" to mapOf("glassMode" to modes[index].id)) })
-                SwitchPreference(settings.flag("reduceMotion"), { command.send("settings.update", "patch" to mapOf("reduceMotion" to it)) }, "减弱动态效果", modifier = Modifier.testTag("settings.reduceMotion"))
-                if (xiaomiFilterSupported) {
-                    SwitchPreference(settings.flag("xiaomiImageBlur", true), { command.send("settings.update", "patch" to mapOf("xiaomiImageBlur" to it)) }, "小米水印模糊", modifier = Modifier.testTag("settings.xiaomiImageBlur"))
+        contentPadding = padding.withChromeInsets(railInsets), verticalArrangement = Arrangement.spacedBy(EditorSettingsDefaults.GroupSpacing)) {
+        item(key = "appearance") {
+            EditorSettingsSection("外观") {
+                EditorSettingsCard {
+                    ChromeDropdownPreference(listOf("跟随系统", "浅色", "深色"),
+                        themes.indexOf(settings.text("theme", "system")).coerceAtLeast(0), "应用主题",
+                        modifier = row.testTag("settings.theme"), insideMargin = EditorSettingsDefaults.RowPadding,
+                        onSelectedIndexChange = { command.send("settings.update", "patch" to mapOf("theme" to themes[it])) })
+                    val effects = LocalStarMarkEffects.current
+                    val modes = glassModeChoices(effects.systemGlassSupported)
+                    ChromeDropdownPreference(modes.map { it.title }, modes.indexOf(effects.mode).coerceAtLeast(0), "柔光效果",
+                        modifier = row.testTag("settings.glass"), insideMargin = EditorSettingsDefaults.RowPadding,
+                        onSelectedIndexChange = { command.send("settings.update", "patch" to mapOf("glassMode" to modes[it].id)) })
+                    SwitchPreference(settings.flag("reduceMotion"), { command.send("settings.update", "patch" to mapOf("reduceMotion" to it)) },
+                        "减弱动态效果", modifier = Modifier.testTag("settings.reduceMotion"))
+                    if (xiaomiFilterSupported) {
+                        SwitchPreference(settings.flag("xiaomiImageBlur", true), { command.send("settings.update", "patch" to mapOf("xiaomiImageBlur" to it)) },
+                            "小米水印模糊", modifier = Modifier.testTag("settings.xiaomiImageBlur"))
+                    }
                 }
             }
         }
-        item {
-            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
+        item(key = "export") {
+            EditorSettingsCard {
                 SwitchPreference(settings.flag("staticPhotoExport"),
                     { command.send("settings.update", "patch" to mapOf("staticPhotoExport" to it)) },
-                    "静态照片导出", summary = "开启后，Live动态照片自动转换为静态照片",
+                    "将动态照片导出为静态照片",
                     modifier = Modifier.testTag("settings.staticPhotoExport"))
             }
         }
-        item {
-            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
-                ArrowPreference("实验性功能", modifier = Modifier.testTag("settings.experiments"), onClick = { command.send("navigate", "page" to "experiments") })
+        item(key = "experiments") {
+            EditorSettingsCard {
+                ArrowPreference("实验性功能", modifier = row.testTag("settings.experiments"), insideMargin = EditorSettingsDefaults.RowPadding,
+                    onClick = { command.send("navigate", "page" to "experiments") })
             }
         }
-        item { SmallTitle("关于", insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) }
-        item {
-            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
-                BasicComponent(title = buildTitle(BuildConfig.BUILD_CHANNEL, BuildConfig.VERSION_NAME), summary = buildDetails(BuildConfig.BUILD_CHANNEL, BuildConfig.SOURCE_SHA256, BuildConfig.BUILD_TIMESTAMP),
-                    modifier = Modifier.testTag("settings.version").combinedClickable(interactionSource = versionInteraction, indication = null,
-                        role = Role.Button, onLongClickLabel = "查看开源代码许可和组件详情", onLongClick = { askDetails = true }, onClick = {}))
-                if (showDetails) {
-                    ArrowPreference("Miuix 组件", modifier = Modifier.testTag("settings.components"), onClick = { command.send("navigate", "page" to "components") })
-                    ArrowPreference("开放源代码许可", modifier = Modifier.testTag("settings.licenses"), onClick = { command.send("navigate", "page" to "licenses") })
+        item(key = "about") {
+            EditorSettingsSection("关于") {
+                EditorSettingsCard {
+                    BasicComponent(title = buildTitle(BuildConfig.BUILD_CHANNEL, BuildConfig.VERSION_NAME),
+                        summary = buildDetails(BuildConfig.BUILD_CHANNEL, BuildConfig.SOURCE_SHA256, BuildConfig.BUILD_TIMESTAMP),
+                        insideMargin = EditorSettingsDefaults.DetailedRowPadding,
+                        modifier = row.testTag("settings.version").combinedClickable(interactionSource = versionInteraction, indication = null,
+                            role = Role.Button, onLongClickLabel = "查看开源代码许可和组件详情", onLongClick = { askDetails = true }, onClick = {}))
+                    ArrowPreference("检查更新", summary = if (appUpdate.flag("checking")) "正在检查…" else null,
+                        enabled = !appUpdate.flag("checking") && !state.flag("busy"), insideMargin = EditorSettingsDefaults.RowPadding,
+                        modifier = row.testTag("settings.checkUpdate"), onClick = hapticClick { command.send("settings.checkUpdate") })
+                    if (showDetails) {
+                        ArrowPreference("Miuix 组件", modifier = row.testTag("settings.components"), insideMargin = EditorSettingsDefaults.RowPadding,
+                            onClick = { command.send("navigate", "page" to "components") })
+                        ArrowPreference("开放源代码许可", modifier = row.testTag("settings.licenses"), insideMargin = EditorSettingsDefaults.RowPadding,
+                            onClick = { command.send("navigate", "page" to "licenses") })
+                    }
                 }
-            }
-        }
-        item {
-            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
-                ArrowPreference("检查更新", summary = if (appUpdate.flag("checking")) "正在检查…" else null,
-                    enabled = !appUpdate.flag("checking") && !state.flag("busy"),
-                    modifier = Modifier.testTag("settings.checkUpdate"),
-                    onClick = hapticClick { command.send("settings.checkUpdate") })
             }
         }
     }
@@ -472,9 +480,10 @@ internal fun AppUpdateDialog(appUpdate: Map<*, *>, ready: Boolean, command: UiCo
 
 @Composable
 internal fun ExperimentalSettingsPage(state: Map<*, *>, command: UiCommand, chromeInsets: PaddingValues = PaddingValues()) {
-    LazyColumn(Modifier.fillMaxSize().testTag("screen.experiments"), contentPadding = PaddingValues(12.dp).withChromeInsets(chromeInsets)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("screen.experiments"), contentPadding = PaddingValues(EditorSettingsDefaults.PageInset).withChromeInsets(chromeInsets),
+        verticalArrangement = Arrangement.spacedBy(EditorSettingsDefaults.GroupSpacing)) {
         item {
-            Card(Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
+            EditorSettingsCard {
                 if ((LocalStarMarkEffects.current.systemGlassSupported || PortablePhotoGlass.supported())) {
                     SwitchPreference(state.obj("settings").flag("glassWatermark"),
                         { command.send("settings.update", "patch" to mapOf("glassWatermark" to it)) },
@@ -482,17 +491,16 @@ internal fun ExperimentalSettingsPage(state: Map<*, *>, command: UiCommand, chro
                 }
                 SwitchPreference(state.obj("settings").flag("autoRemoveWatermark"),
                     { command.send("settings.update", "patch" to mapOf("autoRemoveWatermark" to it)) },
-                    "自动移除照片水印", summary = "仅支持小米手机默认添加的水印自动移除",
+                    "自动移除小米手机默认水印",
                     modifier = Modifier.testTag("settings.autoRemoveWatermark"))
                 SwitchPreference(state.obj("settings").flag("replaceDefaultParameterIcon"),
                     { command.send("settings.update", "patch" to mapOf("replaceDefaultParameterIcon" to it)) },
-                    "替换默认参数图标", summary = "统一替换水印中的参数图标，关闭后恢复各自设置",
+                    "统一替换默认参数图标", summary = "关闭后恢复各水印的设置",
                     enabled = !state.flag("busy"), modifier = Modifier.testTag("settings.replaceDefaultParameterIcon"))
             }
         }
         if (state.obj("settings").flag("replaceDefaultParameterIcon")) item(key = "parameterIcons") {
-            Column {
-                SupportingText("款式", Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp))
+            EditorSettingsSection("款式") {
                 ParameterIconSettingsCard(state, command)
             }
         }

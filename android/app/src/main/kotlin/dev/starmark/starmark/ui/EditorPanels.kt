@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -662,7 +663,8 @@ internal fun NativeLayoutPanel(state: Map<*, *>, command: UiCommand, showLayouts
             }
         }
         if (backgrounds.size > 1) NativeOptionChoices(
-            "款式", backgrounds, state.editable(), "native.background",
+            if (state.obj("document").text("mode") == "frame") "画框背景" else "水印背景",
+            backgrounds, state.editable(), "native.background",
             selected = { it.text("value") == native.text("backgroundName") && it.flag("glass") == native.flag("glassBackground") },
         ) { choice ->
             // One OEM background can still have a glass experiment variant.
@@ -684,8 +686,10 @@ private fun NativeOptionChoices(
     val colors = MiuixTheme.colorScheme
     val dark = colors.background.luminance() < .5f
     val scroll = key(choices.map { it.text("value") + it.flag("glass") }) { rememberScrollState() }
-    EditorSettingsSection(title) {
-        EditorSettingsCard(insideMargin = PaddingValues(vertical = 8.dp)) {
+    EditorSettingsCard(insideMargin = PaddingValues(top = 16.dp, bottom = 20.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(title, modifier = Modifier.padding(horizontal = EditorSettingsDefaults.RowInset).semantics { heading() },
+                style = MiuixTheme.textStyles.body1, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium)
             Row(
                 Modifier.fillMaxWidth().testTag(tag).horizontalScroll(scroll).selectableGroup()
                     .padding(horizontal = EditorSettingsDefaults.RowInset),

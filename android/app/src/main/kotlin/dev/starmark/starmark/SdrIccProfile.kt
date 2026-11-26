@@ -8,6 +8,37 @@ import kotlin.math.abs
  * Only well-understood SDR transfer functions qualify. A profile name (including
  * "Display P3") alone never proves dynamic range. ICC.1:2022 sections 7 and 10. */
 internal object SdrIccProfile {
+    /** JPEG APP2 can split one ICC profile into numbered fragments, in any order. */
+    class JpegParts {
+        private val parts = sortedMapOf<Int, ByteArray>()
+        private var expected = 0
+        private var size = 0
+        private var invalid = false
+
+        fun add(segment: ByteArray) {
+            if (invalid) return
+            if (segment.size <= 14 || segment[11].toInt() != 0) { invalid = true; return }
+            val number = segment[12].toInt() and 255
+            val count = segment[13].toInt() and 255
+            size += segment.size - 14
+            if (number !in 1..count || (expected != 0 && expected != count) || number in parts || size > 262144) {
+                invalid = true
+                return
+            }
+            expected = count
+            parts[number] = segment.copyOfRange(14, segment.size)
+        }
+
+        fun isSdr(implicitSrgb: Boolean): Boolean {
+            if (invalid || parts.size != expected) return false
+            if (parts.isEmpty()) return implicitSrgb
+            val data = ByteArrayOutputStream(size).also { stream -> parts.values.forEach { stream.write(it) } }
+            // Edited JPEGs can round all coefficients of the piecewise sRGB curve to three
+            // decimals (including a .039 breakpoint). HDR CICP/LUT or unknown curves fail.
+            return profile(data.toByteArray(), srgbTolerance = .002)
+        }
+    }
+
     fun pngChunk(data: ByteArray): Boolean { return try {
         val end = data.indexOf(0)
         if (end !in 1..79 || end + 2 >= data.size || data[end + 1].toInt() != 0) false
@@ -27,7 +58,7 @@ internal object SdrIccProfile {
         }
     } catch (_: Exception) { false } }
 
-    private fun profile(b: ByteArray): Boolean {
+    private fun profile(b: ByteArray, srgbTolerance: Double = 2.0 / 65536): Boolean {
         if (b.size !in 132..262144) return false
         fun u32(at: Int): Long = (0..3).fold(0L) { v, i -> (v shl 8) or (b[at + i].toLong() and 255) }
         fun signature(at: Int) = String(b, at, 4, Charsets.US_ASCII)
@@ -73,7 +104,7 @@ internal object SdrIccProfile {
                         val expected = doubleArrayOf(2.4, 1 / 1.055, .055 / 1.055, 1 / 12.92, .04045, 0.0, 0.0)
                         val parameters = when (kind) { 3 -> 5; 4 -> 7; else -> return false }
                         if (size != 12 + parameters * 4 || (0 until parameters).any {
-                                abs(fixed(at + 12 + it * 4) - expected[it]) > 2.0 / 65536
+                                abs(fixed(at + 12 + it * 4) - expected[it]) > srgbTolerance
                             }) return false
                     }
                 }

@@ -26,6 +26,7 @@ internal object EditorSettingsDefaults {
     val RowMinHeight = 56.dp
     val TouchTarget = 48.dp
     val RowPadding = PaddingValues(horizontal = RowInset, vertical = 12.dp)
+    val DetailedRowPadding = PaddingValues(horizontal = RowInset, vertical = 14.dp)
 }
 
 /** Retain the form row and trailing edge; halve only its editable surface. */

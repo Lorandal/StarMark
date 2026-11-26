@@ -266,14 +266,31 @@ internal fun MiuiSelfBlurHost(
         Box(modifier.then(if (accessible) Modifier else Modifier.clearAndSetSemantics {}), propagateMinConstraints = true) { content() }
         return
     }
+    MiuiSelfBlurViewHost(radius, modifier, accessible, wrapContentHeight, content)
+}
+
+@Composable
+internal fun MiuiSelfBlurViewHost(
+    radius: Float,
+    modifier: Modifier,
+    accessible: Boolean,
+    wrapContentHeight: Boolean,
+    content: @Composable () -> Unit,
+) {
     val parentContext = rememberCompositionContext()
+    // ComposeView installs the Android display density even when its parent scales the editor.
+    val parentDensity by rememberUpdatedState(LocalDensity.current)
     val currentContent by rememberUpdatedState(content)
     AndroidView(
-        factory = { context -> MiuiSelfBlurContentView(context, parentContext, wrapContentHeight) { currentContent() } },
+        factory = { context ->
+            MiuiSelfBlurContentView(context, parentContext, wrapContentHeight) {
+                CompositionLocalProvider(LocalDensity provides parentDensity) { currentContent() }
+            }
+        },
         modifier = modifier,
         onReset = null,
         onRelease = { it.release() },
-        update = { it.configure(radius, effects.glass && !effects.reduceMotion, accessible) },
+        update = { it.configure(radius, enabled = true, accessible = accessible) },
     )
 }
 

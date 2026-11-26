@@ -62,10 +62,10 @@ internal object PhotoHdr {
     @SuppressLint("NewApi")
     fun inspect(source: File): Inspection {
         val supported = Build.VERSION.SDK_INT >= 34
-        val sdrStatus = try { quickSdrStatus(source) } catch (_: Exception) {
+        val header = try { inspectHeader(source) } catch (_: Exception) {
             return Inspection(supported, null, status = "read_failed", mayContainGainmap = true)
         }
-        if (sdrStatus != null) return Inspection(supported, false, status = sdrStatus, mayContainGainmap = false)
+        header.sdrStatus?.let { return Inspection(supported, false, status = it, mayContainGainmap = false) }
         if (!supported) return Inspection(false, null, status = "api_unsupported", mayContainGainmap = true)
         var decoded: Bitmap? = null
         return try {
@@ -74,6 +74,10 @@ internal object PhotoHdr {
             decoded = BitmapFactory.decodeFile(source.path, options)
                 ?: return Inspection(true, null, status = "decode_failed", mayContainGainmap = true)
             val actual = decoded.hasGainmap()
+            if (!actual && header == Header.DECLARED_GAINMAP) {
+                return Inspection(true, null, status = "declared_gainmap_unreadable",
+                    mayContainGainmap = true, sampleSize = options.inSampleSize)
+            }
             if (!actual && !isJpeg(source)) {
                 // PQ/HLG PNG and HDR HEIF can carry HDR without a Gainmap. A negative gainmap
                 // query cannot certify their SDR rendition; preserve the export refusal signal.
@@ -131,31 +135,58 @@ internal object PhotoHdr {
         var createdMap: Bitmap? = null
         var transferred = false
         return try {
-            quickSdrStatus(source)?.let { return Attachment(false, it) }
+            inspectHeader(source).sdrStatus?.let { return Attachment(false, it) }
             val options = decodeOptions(source, 4096) ?: return Attachment(false, "decode_failed")
             decoded = BitmapFactory.decodeFile(source.path, options) ?: return Attachment(false, "decode_failed")
             if (!decoded.hasGainmap()) return Attachment(false, "no_decodable_gainmap")
             val original = decoded.gainmap ?: return Attachment(false, "no_decodable_gainmap")
-            if (Build.VERSION.SDK_INT >= 36 && original.gainmapDirection != Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR) {
-                return Attachment(false, "hdr_base_unsupported")
-            }
             val sourceSpace = decoded.colorSpace as? ColorSpace.Rgb
                 ?: return Attachment(false, "source_color_space_unsupported")
+            val parameters = Parameters(original)
+            val hdrBase = Build.VERSION.SDK_INT >= 36 && original.gainmapDirection != Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR
+            val valid = parameters.valid()
+            val collapsedSdrHeadroom = parameters.transition == 1f && parameters.full == 1f
+            val scale = min(1.0, maxGainmapEdge.toDouble() / max(output.width, output.height))
+            val width = max(1, ceil(output.width * scale).toInt())
+            val height = max(1, ceil(output.height * scale).toInt())
+            // Some photo editors write two identical (SDR) rendition headrooms. Android can
+            // infer HDR-to-SDR from those equal ISO values. The sampled map still exists.
+            if ((collapsedSdrHeadroom || (!hdrBase && valid)) && parameters.hasUnitGain()) {
+                // BitmapFactory can expose a Display P3 rendition even when the encoded ICC is
+                // Rec.2020 HLG/PQ. Check the actual primary profile before treating its base as SDR.
+                val icc = SdrIccProfile.JpegParts()
+                if ((sourceSpace != SRGB && sourceSpace != ColorSpace.get(ColorSpace.Named.DISPLAY_P3)) ||
+                    inspectHeader(source, icc) != Header.DECLARED_GAINMAP ||
+                    !icc.isSdr(implicitSrgb = sourceSpace == SRGB && !collapsedSdrHeadroom)) {
+                    return Attachment(false, "neutral_base_color_unconfirmed")
+                }
+                createdMap = placeNeutralMap(original.gainmapContents, output, photoRect, orientation,
+                    contributionMask, width, height)
+                output.gainmap = Gainmap(createdMap).apply {
+                    setRatioMin(1f, 1f, 1f); setRatioMax(1f, 1f, 1f)
+                    setGamma(parameters.gamma[0], parameters.gamma[1], parameters.gamma[2])
+                    setEpsilonSdr(parameters.epsilonSdr[0], parameters.epsilonSdr[1], parameters.epsilonSdr[2])
+                    setEpsilonHdr(parameters.epsilonHdr[0], parameters.epsilonHdr[1], parameters.epsilonHdr[2])
+                    // A conventional one-stop display interval avoids a zero denominator.
+                    // Unit gain and equal offsets keep the rendition identical at every headroom.
+                    minDisplayRatioForHdrTransition = parameters.transition
+                    displayRatioForFullHdr = if (collapsedSdrHeadroom) 2f else parameters.full
+                }
+                transferred = true
+                return Attachment(true, "attached_neutral_gainmap", width, height)
+            }
+            if (hdrBase) return Attachment(false, "hdr_base_unsupported")
             val mathSpace = if (Build.VERSION.SDK_INT >= 36) {
                 (original.alternativeImagePrimaries ?: sourceSpace) as? ColorSpace.Rgb
                     ?: return Attachment(false, "gainmap_color_space_unsupported")
             } else sourceSpace
-            val parameters = Parameters(original)
-            if (!parameters.valid()) return Attachment(false, "invalid_gainmap_parameters")
+            if (!valid) return Attachment(false, "invalid_gainmap_parameters")
             val sourceToMath = linearTransform(sourceSpace, mathSpace)
             val outputSpace = output.colorSpace as ColorSpace.Rgb
             val mathToOutput = linearTransform(mathSpace, outputSpace)
             val sourceSampler = LinearSampler(decoded, sourceSpace)
             val gainSampler = PixelSampler(original.gainmapContents, numeric = true)
             val outputSampler = LinearSampler(output, outputSpace)
-            val scale = min(1.0, maxGainmapEdge.toDouble() / max(output.width, output.height))
-            val width = max(1, ceil(output.width * scale).toInt())
-            val height = max(1, ceil(output.height * scale).toInt())
             val maskCoverage = contributionMask?.let { coverageMinima(it, width, height) }
             val ratios = FloatArray(width * height * 3)
             val lower = DoubleArray(3) { 0.0 }
@@ -242,6 +273,28 @@ internal object PhotoHdr {
         }
     }
 
+    private fun placeNeutralMap(source: Bitmap, output: Bitmap, rect: Rect, orientation: Int,
+                                mask: Bitmap?, width: Int, height: Int): Bitmap {
+        val sampler = PixelSampler(source, numeric = true)
+        val coverage = mask?.let { coverageMinima(it, width, height) }
+        val raw = DoubleArray(2)
+        val values = DoubleArray(3)
+        val pixels = IntArray(width * height) { Color.BLACK }
+        for (y in 0 until height) for (x in 0 until width) {
+            val u = ((x + .5) * output.width / width - rect.left) / rect.width()
+            val v = ((y + .5) * output.height / height - rect.top) / rect.height()
+            val index = y * width + x
+            val weight = coverage?.get(index)?.toDouble() ?: 1.0
+            if (u < 0 || u >= 1 || v < 0 || v >= 1 || weight <= 0) continue
+            toRaw(u, v, orientation, raw)
+            sampler.sample(raw[0], raw[1], values)
+            pixels[index] = Color.rgb((values[0] * weight * 255).roundToInt().coerceIn(0, 255),
+                (values[1] * weight * 255).roundToInt().coerceIn(0, 255),
+                (values[2] * weight * 255).roundToInt().coerceIn(0, 255))
+        }
+        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    }
+
     /** Gainmap pixels are numeric data, including ALPHA_8; Canvas/color conversion loses them. */
     @SuppressLint("NewApi")
     fun cropGainmap(original: Gainmap, sourceWidth: Int, sourceHeight: Int, crop: Rect): Gainmap {
@@ -280,33 +333,51 @@ internal object PhotoHdr {
 
     private fun isJpeg(source: File): Boolean = source.inputStream().use { it.read() == 0xff && it.read() == 0xd8 }
 
-    /** Null means uncertain. No Bitmap/Gainmap API is required for these header-only SDR paths. */
-    private fun quickSdrStatus(source: File): String? = RandomAccessFile(source, "r").use { file ->
-        if (file.length() < 4) return@use null
+    private enum class Header(val sdrStatus: String? = null) {
+        SDR_JPEG("sdr_jpeg"), SDR_PNG("sdr_png"), DECLARED_GAINMAP, UNKNOWN
+    }
+
+    /** No Bitmap/Gainmap API is required for the header-only SDR paths. */
+    private fun inspectHeader(source: File, icc: SdrIccProfile.JpegParts? = null): Header = RandomAccessFile(source, "r").use { file ->
+        if (file.length() < 4) return@use Header.UNKNOWN
         if (file.readUnsignedShort() != 0xffd8) {
             file.seek(0)
-            return@use if (isOrdinarySdrPng(file)) "sdr_png" else null
+            return@use if (isOrdinarySdrPng(file)) Header.SDR_PNG else Header.UNKNOWN
         }
+        var header = Header.SDR_JPEG
         // Probe JPEG markers before SOS; entropy-coded pixels and trailers are not scanned.
         while (file.filePointer < min(file.length(), 4L * 1024 * 1024)) {
-            if (file.readUnsignedByte() != 0xff) return@use null
+            if (file.readUnsignedByte() != 0xff) return@use Header.UNKNOWN
             var marker = file.readUnsignedByte()
             while (marker == 0xff) marker = file.readUnsignedByte()
-            if (marker == 0xda || marker == 0xd9) return@use "sdr_jpeg"
+            if (marker == 0xda || marker == 0xd9) return@use header
             if (marker == 0x01 || marker in 0xd0..0xd7) continue
             val length = file.readUnsignedShort() - 2
-            if (length < 0 || file.filePointer + length > file.length()) return@use null
+            if (length < 0 || file.filePointer + length > file.length()) return@use Header.UNKNOWN
             if (marker == 0xe1 || marker == 0xe2) {
                 val bytes = ByteArray(length)
                 file.readFully(bytes)
                 val content = String(bytes, Charsets.ISO_8859_1)
-                if (content.startsWith("MPF\u0000") || content.contains("hdr-gain-map", true) ||
+                if (marker == 0xe2 && content.startsWith("ICC_PROFILE")) icc?.add(bytes)
+                val xmp = marker == 0xe1 && content.startsWith("http://ns.adobe.com/xap/1.0/\u0000")
+                if ((marker == 0xe2 && content.startsWith("urn:iso:std:iso:ts:21496:-1\u0000")) ||
+                    (xmp && (content.contains("http://ns.adobe.com/hdr-gain-map/1.0/") ||
+                        (content.contains("http://ns.google.com/photos/1.0/container/item/") &&
+                            GAINMAP_SEMANTIC.containsMatchIn(content))))) {
+                    header = Header.DECLARED_GAINMAP
+                    if (icc == null) return@use header
+                }
+                // MPF alone can also describe non-HDR multi-picture files. Check the remaining
+                // markers for a specific HDR declaration before relying on a negative decode.
+                if (header != Header.DECLARED_GAINMAP && (content.startsWith("MPF\u0000") || content.contains("hdr-gain-map", true) ||
                     content.contains("hdrgm:", true) || content.contains("21496") ||
-                    content.contains("HDRGainMap", true)) return@use null
+                    content.contains("HDRGainMap", true))) header = Header.UNKNOWN
             } else file.seek(file.filePointer + length)
         }
-        null // An unreasonably large/invalid header is unknown, never asserted to be SDR.
+        Header.UNKNOWN
     }
+
+    private val GAINMAP_SEMANTIC = Regex("""\bSemantic\s*=\s*["']GainMap["']|\bSemantic>\s*GainMap\s*<""")
 
     /**
      * A narrow PNG exclusion, not an HDR decoder. Only ordinary 8-bit PNG with implicit/explicit
@@ -481,6 +552,10 @@ internal object PhotoHdr {
         val logMax = DoubleArray(3) { ln(max[it].toDouble()) }
         val transition = gainmap.minDisplayRatioForHdrTransition
         val full = gainmap.displayRatioForFullHdr
+        fun hasUnitGain() = (0..2).all { c ->
+            min[c] == 1f && max[c] == 1f && gamma[c].isFinite() && gamma[c] > 0 &&
+                epsilonSdr[c].isFinite() && epsilonSdr[c] >= 0 && epsilonSdr[c] == epsilonHdr[c]
+        }
         fun valid() = (0..2).all { c ->
             min[c].isFinite() && min[c] > 0 && max[c].isFinite() && max[c] >= min[c] &&
                 gamma[c].isFinite() && gamma[c] > 0 && epsilonSdr[c].isFinite() && epsilonHdr[c].isFinite()

@@ -8,6 +8,7 @@ package dev.starmark.starmark.ui.g2
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.NonRestartableComposable
@@ -15,8 +16,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
+import dev.starmark.starmark.ui.EditorSettingsDefaults
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentColors
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
@@ -53,14 +61,17 @@ fun SwitchPreference(
     endActions: @Composable RowScope.() -> Unit = {},
     bottomAction: (@Composable () -> Unit)? = null,
     switchColors: SwitchColors = SwitchDefaults.switchColors(),
-    insideMargin: PaddingValues = BasicComponentDefaults.InsideMargin,
+    insideMargin: PaddingValues = if (summary.isNullOrEmpty()) EditorSettingsDefaults.RowPadding else EditorSettingsDefaults.DetailedRowPadding,
     holdDownState: Boolean = false,
     enabled: Boolean = true,
 ) {
     val currentOnCheckedChange by rememberUpdatedState(onCheckedChange)
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     BasicComponent(
-        modifier = modifier,
+        modifier = modifier.heightIn(min = EditorSettingsDefaults.RowMinHeight).semantics {
+            toggleableState = ToggleableState(checked)
+            if (!enabled) disabled()
+        },
         insideMargin = insideMargin,
         title = title,
         titleColor = titleColor,
@@ -108,6 +119,8 @@ private fun SwitchPreferenceEndActions(
     Switch(
         checked = checked,
         onCheckedChange = onCheckedChange,
+        // The row announces the switch. The thumb still handles physical drags.
+        modifier = Modifier.focusProperties { canFocus = false }.clearAndSetSemantics {},
         enabled = enabled,
         colors = switchColors,
     )

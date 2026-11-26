@@ -456,14 +456,14 @@ private fun panelTitle(id: String?, native: Boolean): String = when (id) {
 
 @Composable
 private fun SaveStyleDialog(show: Boolean, busy: Boolean, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    ChromeDialog(show = show, title = "保存为自定义样式", summary = "保留完整字体、图片与原厂资源，方便下次使用。", onDismissRequest = onDismiss) {
+    ChromeDialog(show = show, title = "保存为自定义样式", onDismissRequest = onDismiss) {
         var title by rememberSaveable { mutableStateOf("") }
         Column(Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             HalfWidthTextInput {
                 TextField(title, { title = it.take(40) }, colors = glassTextFieldColors(), label = "样式名称", singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("style.save.title").semantics { contentDescription = "样式名称（最多 40 字符）" })
             }
-            MainButton("保存样式", "style.save.confirm", !busy && title.isNotBlank()) { onSave(title.trim()) }
+            MainButton("保存", "style.save.confirm", !busy && title.isNotBlank()) { onSave(title.trim()) }
         }
     }
 }
