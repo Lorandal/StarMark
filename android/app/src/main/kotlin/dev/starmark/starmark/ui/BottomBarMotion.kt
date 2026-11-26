@@ -1,5 +1,8 @@
 package dev.starmark.starmark.ui
 
+internal const val ContractedNavigationScale = .6f
+internal val NavigationVisibilitySpring = FolmeSpring(1f, .30f)
+
 internal data class BottomBarFrame(
     val navigationAlpha: Float,
     val navigationScale: Float,
@@ -20,7 +23,7 @@ internal class BottomBarMotion(actions: Boolean, visible: Boolean) {
     private var targetActions = actions
     private var targetVisible = visible
     val frame get() = BottomBarFrame(navigation.value.coerceIn(0f, 1f),
-        .6f + .4f * navigation.value, menuAlpha, menuOffset.value)
+        ContractedNavigationScale + (1f - ContractedNavigationScale) * navigation.value, menuAlpha, menuOffset.value)
     val running get() = navigation.running || menuOffset.running || menuAlpha != menuTarget
 
     fun retarget(actions: Boolean, visible: Boolean, immediate: Boolean = false) {
@@ -33,7 +36,7 @@ internal class BottomBarMotion(actions: Boolean, visible: Boolean) {
             menuStart = menuAlpha; menuTarget = menuAlpha
             navigationDelay = 0f; menuDelay = 0f; menuElapsed = .15f
         } else if (targetActions != actions || targetVisible != visible) {
-            navigation.retarget(if (nav) 1f else 0f, FolmeSpring(1f, .30f))
+            navigation.retarget(if (nav) 1f else 0f, NavigationVisibilitySpring)
             navigationDelay = if (nav) .1f else 0f
             menuOffset.retarget(if (menu) 0f else 15f, FolmeSpring(.82f, .30f))
             menuStart = menuAlpha

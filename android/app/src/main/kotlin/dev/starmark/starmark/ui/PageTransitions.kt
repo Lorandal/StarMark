@@ -53,6 +53,7 @@ internal fun ReferencePageTransition(
     onCanvasMotion: (Float, Float, Boolean) -> Unit = { _, _, _ -> },
     toolOrder: List<String>? = null,
     trailingTabs: Boolean = false,
+    primaryTabLayout: (@Composable (String, Modifier, @Composable () -> Unit) -> Unit)? = null,
     content: @Composable (String, () -> Float) -> Unit,
 ) {
     val reduced = LocalStarMarkEffects.current.reduceMotion
@@ -152,8 +153,24 @@ internal fun ReferencePageTransition(
                 if (shown.usesPhotoCanvas()) {
                     val ownsCanvas = remember(shown) { { canvasOwner == shown } }
                     CompositionLocalProvider(LocalOwnsPhotoCanvas provides ownsCanvas) { content(shown, pageOffset) }
-                } else if (shown in rootTabs) RetainedRootTabs(shown, rootTabs, width, height, trailingTabs, reduced, pageOffset, content)
-                else content(shown, pageOffset)
+                } else if (shown in rootTabs) {
+                    val panes: @Composable () -> Unit = {
+                        RetainedRootTabs(shown, rootTabs, width, height, trailingTabs, reduced, pageOffset, content)
+                    }
+                    if (primaryTabLayout == null) panes() else {
+                        // The shared bar belongs to the page behind the leading edge. Only a
+                        // hierarchy change contracts it; switching between the two tabs does not.
+                        val capsuleModifier = if (reduced) Modifier else {
+                            val scale = transition.animateFloat(transitionSpec = {
+                                spring(dampingRatio = NavigationVisibilitySpring.damping, stiffness = NavigationVisibilitySpring.stiffness)
+                            }, label = "primaryNavigationScale") { phase ->
+                                if (phase == EnterExitState.Visible) 1f else ContractedNavigationScale
+                            }
+                            Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+                        }
+                        primaryTabLayout(shown, capsuleModifier, panes)
+                    }
+                } else content(shown, pageOffset)
             }
         }
     }

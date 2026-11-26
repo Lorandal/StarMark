@@ -217,6 +217,7 @@ internal fun TrailingFloatingNavigation(
     items: List<FloatingNavEntry>, selected: String, onSelected: (String) -> Unit, enabled: Boolean,
     metrics: TrailingNavigationMetrics, modifier: Modifier = Modifier, tagPrefix: String = "navigation",
     interactionEnabled: Boolean = enabled,
+    capsuleModifier: Modifier = Modifier,
     aboveRail: (@Composable () -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
@@ -231,8 +232,10 @@ internal fun TrailingFloatingNavigation(
                 aboveRail()
                 Spacer(Modifier.height(RailHistoryGap)) // Plus the 2dp inset on the history button face.
             }
-            FloatingNavigationCapsule(items, selected, onSelected, enabled, interactive = enabled && interactionEnabled,
-                layout = metrics.capsule, vertical = true, tagPrefix = tagPrefix, containerTag = "$tagPrefix.rail")
+            Box(capsuleModifier) {
+                FloatingNavigationCapsule(items, selected, onSelected, enabled, interactive = enabled && interactionEnabled,
+                    layout = metrics.capsule, vertical = true, tagPrefix = tagPrefix, containerTag = "$tagPrefix.rail")
+            }
         }
     }
 }
@@ -249,6 +252,7 @@ fun FloatingNavigation(
     tagPrefix: String = "navigation",
     actionsVisible: Boolean = false,
     interactionEnabled: Boolean = enabled,
+    capsuleModifier: Modifier = Modifier,
     actionContent: (@Composable (Boolean) -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
@@ -268,7 +272,7 @@ fun FloatingNavigation(
                     bottom = navigationBottomMargin(bottomInset.value).dp - bottomInset),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(Modifier.fillMaxWidth().height(capsule.thickness), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(capsule.thickness).then(capsuleModifier), contentAlignment = Alignment.Center) {
                 FloatingNavigationCapsule(items, selected, onSelected, enabled, interactive, capsule, vertical = false,
                     tagPrefix = tagPrefix, containerTag = if (showActions) "$tagPrefix.outgoing" else "$tagPrefix.container",
                     navigationAlpha = frame.navigationAlpha, scale = frame.navigationScale)

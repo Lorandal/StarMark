@@ -149,29 +149,49 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
         val density = LocalDensity.current
         val startup by LocalStartupProgress.current
         val layoutDirection = LocalLayoutDirection.current
-        val rootNavigationVisible = destinations.any { it.id == page }
-        val selectingDrafts = page == "home" && state.obj("draftSelection").flag("active")
-        val bottomNavigationVisible = rootNavigationVisible && (!sideNavigation || selectingDrafts)
+        val selectingDrafts = state.obj("draftSelection").flag("active")
         val trailingMetrics = if (sideNavigation) rootTrailingNavigationMetrics(destinations) else null
         val homeRailHeight = if (trailingMetrics == null) 0.dp else trailingMetrics.capsule.track.width.dp +
             trailingMetrics.bottomPadding + WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
         val shaderSupported = isRuntimeShaderSupported()
-        val rootBackdropNeeded = rootNavigationVisible && backdropRecordingNeeded(effects.glass, effects.systemGlass, shaderSupported, false)
+        val rootBackdropNeeded = backdropRecordingNeeded(effects.glass, effects.systemGlass, shaderSupported, false)
         // The top gradient and the cross-window menu can fall back locally even
         // while other chrome successfully uses the vendor glass implementation.
         val routeBackdropNeeded = backdropRecordingNeeded(effects.glass, effects.systemGlass, shaderSupported, true)
         val bottomMargin = navigationBottomMargin(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value).dp
         val navigationHeight = floatingNavigationMetrics(maxWidth.value, density.fontScale, destinations.size).height.dp + 8.dp + bottomMargin
         val safeRight = WindowInsets.safeDrawing.asPaddingValues().calculateRightPadding(layoutDirection)
-        // The persistent bar samples the relevant edge of both transitioning routes.
-        val rootBackdrop = rememberLayerBackdrop(onDraw = {
-            val contentScope = this
-            if (trailingMetrics != null && !selectingDrafts) {
-                clipRect(left = (size.width - (safeRight + trailingMetrics.clearance + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
-            } else clipRect(top = (size.height - (navigationHeight + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
-        })
-        Box(Modifier.fillMaxSize().then(if (rootBackdropNeeded) Modifier.layerBackdrop(rootBackdrop) else Modifier)) {
-        ReferencePageTransition(page, onCanvasMotion, trailingTabs = sideNavigation) { shown, offset ->
+        ReferencePageTransition(page, onCanvasMotion, trailingTabs = sideNavigation, primaryTabLayout = { tab, capsuleModifier, panes ->
+            val actions = tab == "home" && selectingDrafts
+            val rail = trailingMetrics?.takeUnless { actions }
+            val rootBackdrop = rememberLayerBackdrop(onDraw = {
+                val contentScope = this
+                if (rail != null) {
+                    clipRect(left = (size.width - (safeRight + rail.clearance + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
+                } else clipRect(top = (size.height - (navigationHeight + 52.dp).toPx()).coerceAtLeast(0f)) { contentScope.drawContent() }
+            })
+            Box(Modifier.fillMaxSize()) {
+                // Only the primary panes feed this glass, including the exposed strip during a push or pop.
+                Box(Modifier.fillMaxSize().then(if (rootBackdropNeeded) Modifier.layerBackdrop(rootBackdrop) else Modifier)) { panes() }
+                CompositionLocalProvider(LocalChromeBackdrop provides rootBackdrop) {
+                    val placement = Modifier.align(if (rail != null) AbsoluteAlignment.BottomRight else Alignment.BottomCenter)
+                        .graphicsLayer { translationY = 24.dp.toPx() * (1f - startup) }
+                    val selectTab: (String) -> Unit = { if (tab == page) command.send("navigate", "page" to it) }
+                    if (rail != null) {
+                        TrailingFloatingNavigation(destinations, tab, selectTab, enabled = !busy, metrics = rail,
+                            modifier = placement, interactionEnabled = tab == page, capsuleModifier = capsuleModifier)
+                    } else FloatingNavigation(destinations, tab, selectTab, enabled = !busy, modifier = placement,
+                        interactionEnabled = tab == page, capsuleModifier = capsuleModifier, actionsVisible = actions,
+                        actionContent = { interactive ->
+                            val selection = state.obj("draftSelection")
+                            DraftSelectionActions(interactive && !busy, selection.integer("selectedCount") > 0, selection.flag("allSelected"),
+                                onCancel = { command.send("draft.selection.cancel") },
+                                onToggleAll = { command.send("draft.selection.all", "selected" to !selection.flag("allSelected")) },
+                                onDelete = { deletingDraftIds = state.rows("drafts").filter { it.flag("selected") }.map { it.text("id") } })
+                        })
+                }
+            }
+        }) { shown, offset ->
             routeStates.SaveableStateProvider(shown) {
             val current = shown == page
             val ownsCanvas = LocalOwnsPhotoCanvas.current
@@ -224,7 +244,7 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                         if (ownsCanvas()) onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
                     }
                 } else {
-                val reserveLane = rootDestination && shown != "home" && sideNavigation && !bottomNavigationVisible
+                val reserveLane = rootDestination && shown != "home" && sideNavigation
                 if (reserveLane) Box(Modifier.fillMaxSize().background(colors.background))
                 Scaffold(
                     modifier = Modifier.fillMaxSize().then(if (reserveLane) Modifier.absolutePadding(right = safeRight + (trailingMetrics?.clearance ?: 0.dp)) else Modifier).scrollBoundaryHaptics { barState.heightOffset }.then(if (trackHeaderScroll) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier),
@@ -318,32 +338,6 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
             }
         }
         }
-        }
-        }
-        if (rootNavigationVisible) {
-            CompositionLocalProvider(LocalChromeBackdrop provides rootBackdrop) {
-                if (!bottomNavigationVisible && trailingMetrics != null) {
-                    TrailingFloatingNavigation(destinations, page, { command.send("navigate", "page" to it) },
-                        enabled = !busy, metrics = trailingMetrics,
-                        modifier = Modifier.align(AbsoluteAlignment.BottomRight).graphicsLayer {
-                            translationY = 24.dp.toPx() * (1f - startup)
-                        })
-                } else FloatingNavigation(
-                    destinations,
-                    page, { command.send("navigate", "page" to it) }, enabled = !busy,
-                    modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer {
-                        translationY = 24.dp.toPx() * (1f - startup)
-                    },
-                    actionsVisible = selectingDrafts,
-                    actionContent = { interactive ->
-                        val selection = state.obj("draftSelection")
-                        DraftSelectionActions(interactive && !busy, selection.integer("selectedCount") > 0, selection.flag("allSelected"),
-                            onCancel = { command.send("draft.selection.cancel") },
-                            onToggleAll = { command.send("draft.selection.all", "selected" to !selection.flag("allSelected")) },
-                            onDelete = { deletingDraftIds = state.rows("drafts").filter { it.flag("selected") }.map { it.text("id") } })
-                    },
-                )
-            }
         }
         BatchConfirmations(state, command)
         DraftDeleteDialog(deletingDraftIds, busy, onDismiss = { deletingDraftIds = null }) { ids ->
