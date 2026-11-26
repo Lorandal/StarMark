@@ -11,6 +11,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,8 +25,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -537,19 +541,33 @@ internal fun LicensesPage(chromeInsets: PaddingValues = PaddingValues(), reduceM
         item { ChromeSearchField(query, { query = it }, "搜索软件包或许可", "licenses.search") }
         items(filtered, key = { it.id }) { notice ->
             val isExpanded = expanded == notice.id
+            val disclosure = updateTransition(isExpanded, label = "licenseDisclosure")
+            val angle = if (reduceMotion) rememberUpdatedState(if (isExpanded) -90f else 90f)
+                else disclosure.animateFloat(transitionSpec = { spring(stiffness = Spring.StiffnessMediumLow) },
+                    label = "licenseChevron") { if (it) -90f else 90f }
             Card(Modifier.fillMaxWidth().testTag("licenses.group.${notice.id}"), cornerRadius = 24.dp) {
                 BasicComponent(title = notice.titles.joinToString(" · "), onClick = { expanded = if (isExpanded) null else notice.id }, modifier = Modifier.testTag("licenses.toggle.${notice.id}"),
-                    endActions = { Icon(MiuixIcons.ChevronForward, if (isExpanded) "收起许可" else "展开许可", Modifier.size(16.dp).rotate(if (isExpanded) -90f else 90f), tint = MiuixTheme.colorScheme.onSurfaceVariantSummary) })
-                AnimatedVisibility(visible = isExpanded, enter = if (reduceMotion) fadeIn() else expandVertically() + fadeIn(), exit = if (reduceMotion) fadeOut() else shrinkVertically() + fadeOut()) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("licenses.text.${notice.id}")) {
-                        notice.text.chunked(6000).forEach { chunk ->
-                            Text(chunk, style = MiuixTheme.textStyles.footnote1, modifier = Modifier.padding(bottom = 8.dp))
-                        }
-                    }
+                    endActions = { Icon(MiuixIcons.ChevronForward, if (isExpanded) "收起许可" else "展开许可",
+                        Modifier.size(16.dp).graphicsLayer { rotationZ = angle.value }, tint = MiuixTheme.colorScheme.onSurfaceVariantSummary) })
+                if (reduceMotion) {
+                    if (isExpanded) LicenseNoticeBody(notice)
+                } else disclosure.AnimatedVisibility(visible = { it },
+                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()) {
+                    LicenseNoticeBody(notice)
                 }
             }
         }
         if (notices != null && filtered.isEmpty()) item { EmptyState("没有匹配的许可", "请尝试其他软件包名称。") }
+    }
+}
+
+@Composable
+private fun LicenseNoticeBody(notice: LicenseNoticeGroup) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("licenses.text.${notice.id}")) {
+        for (chunk in remember(notice.text) { notice.text.chunked(6000) }) {
+            Text(chunk, style = MiuixTheme.textStyles.footnote1, modifier = Modifier.padding(bottom = 8.dp))
+        }
     }
 }
 

@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +58,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun FoldGalleryEditor(state: Map<*, *>, command: UiCommand, dialog: (String) -> Unit,
-                              trayReveal: State<Float>?, onViewport: (Rect, Rect, Float) -> Unit) {
+                              trayReveal: State<Float>?, tools: PhotoEditorTools, onViewport: (Rect, Rect, Float) -> Unit) {
     val deviceDensity = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize().testTag("screen.editor")) {
         // A single physical unit for both axes keeps circles, glyphs and text undistorted.
@@ -69,7 +70,7 @@ internal fun FoldGalleryEditor(state: Map<*, *>, command: UiCommand, dialog: (St
         val tray = if (batch.flag("active") && WindowInsets.ime.getBottom(deviceDensity) == 0)
             batchTrayLayout(maxWidth * (1198f / 2364f), batch, trayReveal) else null
         CompositionLocalProvider(LocalDensity provides Density(unit, deviceDensity.fontScale * .875f)) {
-            FoldGalleryBody(state, command, dialog, (actualGapPx / unit).dp, (actualLiftPx / unit).dp, deviceDensity, tray, onViewport)
+            FoldGalleryBody(state, command, dialog, (actualGapPx / unit).dp, (actualLiftPx / unit).dp, deviceDensity, tray, tools, onViewport)
         }
     }
 }
@@ -77,10 +78,10 @@ internal fun FoldGalleryEditor(state: Map<*, *>, command: UiCommand, dialog: (St
 @Composable
 private fun FoldGalleryBody(state: Map<*, *>, command: UiCommand, dialog: (String) -> Unit,
                             categoryGap: Dp, photoLift: Dp, deviceDensity: Density, tray: BatchTrayLayout?,
-                            onViewport: (Rect, Rect, Float) -> Unit) {
+                            tools: PhotoEditorTools, onViewport: (Rect, Rect, Float) -> Unit) {
     val photoId = state.obj("photo").text("id")
-    var tool by rememberSaveable(photoId) { mutableStateOf("styles") }
-    var nested by rememberSaveable(photoId) { mutableStateOf<String?>(null) }
+    var tool by tools.tab
+    var nested by tools.nested
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
@@ -102,9 +103,7 @@ private fun FoldGalleryBody(state: Map<*, *>, command: UiCommand, dialog: (Strin
         }
     }
     BackHandler(enabled = nested != null) { command.send("interaction.cancel"); nested = null }
-    val tabs = remember { listOf(FloatingNavEntry("styles", "水印", MiuixIcons.Image),
-        FloatingNavEntry("content", "内容", MiuixIcons.Edit), FloatingNavEntry("fonts", "字体", MiuixIcons.Rename, "Aa"),
-        FloatingNavEntry("position", "位置", ReferenceIcons.Adjust)) }
+    val tabs = rememberPhotoToolEntries()
     val metrics = editorTrailingNavigationMetrics(tabs)
     val bg = MiuixTheme.colorScheme.background
     val ready = state.flag("ready")
@@ -115,7 +114,8 @@ private fun FoldGalleryBody(state: Map<*, *>, command: UiCommand, dialog: (Strin
     val active = groupKey?.takeIf { groups.containsKey(it) } ?: groups.keys.firstOrNull()
     val pageStore = rememberSaveableStateHolder()
     val categoryScroll = rememberLazyListState()
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Gallery positions are measured from the physical left edge in both reading directions.
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = AbsoluteAlignment.TopLeft) {
         val x = maxWidth / 2364
         val y = maxHeight / 1672
         val safe = WindowInsets.safeDrawing.asPaddingValues()
@@ -154,7 +154,8 @@ private fun FoldGalleryBody(state: Map<*, *>, command: UiCommand, dialog: (Strin
         val visiblePanelHeight = (maxHeight - ime).coerceAtLeast(1.dp)
         val scrollEnd = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp
         CompositionLocalProvider(LocalChromeBackdrop provides backdrop) {
-        Box(Modifier.fillMaxSize().then(if (record) Modifier.layerBackdrop(headerScene).graphicsLayer() else Modifier)) {
+        Box(Modifier.fillMaxSize().then(if (record) Modifier.layerBackdrop(headerScene).graphicsLayer() else Modifier),
+            contentAlignment = AbsoluteAlignment.TopLeft) {
         // The recorded surface contains only the actual page background around the Flutter opening.
         // The gallery, categories, shortcut glyphs and chrome are all painted after this layer.
         Box(Modifier.fillMaxSize().then(if (record) Modifier.layerBackdrop(backdrop) else Modifier).drawBehind {
@@ -180,7 +181,8 @@ private fun FoldGalleryBody(state: Map<*, *>, command: UiCommand, dialog: (Strin
                             val group = groups[active].orEmpty()
                             key(active) {
                                 LazyVerticalGrid(GridCells.Fixed(2),
-                                    modifier = Modifier.absoluteOffset(x = gridLeft - panelLeft).width(gridWidth).fillMaxHeight()
+                                    modifier = Modifier.fillMaxWidth().wrapContentWidth(AbsoluteAlignment.Left)
+                                        .absoluteOffset(x = gridLeft - panelLeft).width(gridWidth).fillMaxHeight()
                                         .testTag("editor.gallery"),
                                     contentPadding = PaddingValues(top = panelTop, bottom = scrollEnd),
                                     horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(y * 31)) {

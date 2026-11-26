@@ -64,7 +64,7 @@ internal fun EditorPanel(
         "styles" -> StylesPanel(state, command, closePanel)
         "content" -> ContentPanel(state, command, openPanel, closePanel, stackModelField)
         "fonts" -> ImportedFontPicker(state, command)
-        "position" -> PositionPanel(state, command, openPanel, closePanel)
+        "position" -> PositionPanel(state, command, openPanel, closePanel, standalone = true)
         "border" -> if (state.obj("native").flag("enabled")) NativeLayoutPanel(state, command) else BorderPanel(state, command, closePanel)
         "color" -> if (!state.obj("native").flag("enabled") || state.obj("native").flag("supportsColor")) ColorPanel(state, command, closePanel)
         "models" -> ModelPanel(state, command, closePanel)
@@ -393,7 +393,9 @@ private fun ModelPanel(state: Map<*, *>, command: UiCommand, close: () -> Unit) 
 }
 
 @Composable
-internal fun PositionPanel(state: Map<*, *>, command: UiCommand, open: (String) -> Unit, close: () -> Unit) {
+internal fun PositionPanel(
+    state: Map<*, *>, command: UiCommand, open: (String) -> Unit, close: () -> Unit, standalone: Boolean = false,
+) {
     val doc = state.obj("document")
     val native = state.obj("native")
     val isNative = native.flag("enabled")
@@ -404,7 +406,7 @@ internal fun PositionPanel(state: Map<*, *>, command: UiCommand, open: (String) 
     val hasDetails = isNative && (native.flag("supportsLocation") || native.flag("supportsTime"))
     var index by rememberSaveable { mutableIntStateOf(0) }
     if (isNative && !hasLayouts && !supportsScale && !hasDetails) {
-        if (native.rows("backgrounds").size <= 1 && native.rows("patterns").isEmpty()) {
+        if (standalone || (native.rows("backgrounds").size <= 1 && native.rows("patterns").isEmpty())) {
             SupportingText("此水印使用固定构图", Modifier.padding(horizontal = EditorSettingsDefaults.RowInset))
         }
         return

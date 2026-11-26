@@ -18,7 +18,7 @@ import android.util.Size
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.ComposeView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -97,9 +97,12 @@ class AlbumPickerActivity : ComponentActivity() {
         selection = savedInstanceState?.getStringArrayList("selection") ?: emptyList()
         bucket = savedInstanceState?.getString("bucket")
         permissionInFlight = savedInstanceState?.getBoolean("permissionInFlight") ?: false
-        setContent {
+        val contentView = ComposeView(this)
+        setContentView(contentView)
+        contentView.setStarMarkContent(lifecycle) {
             currentEditorWindow()
-            StarMarkTheme(mapOf("theme" to (intent.getStringExtra(EXTRA_THEME) ?: "system"))) {
+            StarMarkTheme(mapOf("theme" to (intent.getStringExtra(EXTRA_THEME) ?: "system"),
+                "reduceMotion" to intent.getBooleanExtra(EXTRA_REDUCE_MOTION, false))) {
                 val haptics = LocalHapticFeedback.current
                 val background = MiuixTheme.colorScheme.background
                 SideEffect {
@@ -243,6 +246,7 @@ class AlbumPickerActivity : ComponentActivity() {
     companion object {
         const val EXTRA_MULTIPLE = "dev.starmark.album.multiple"
         const val EXTRA_THEME = "dev.starmark.album.theme"
+        const val EXTRA_REDUCE_MOTION = "dev.starmark.album.reduceMotion"
     }
 }
 

@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.view.TextureView
-import android.view.MotionEvent
 import android.os.Looper
 import android.widget.FrameLayout
 import androidx.compose.ui.geometry.Rect
@@ -73,12 +72,12 @@ class MiuixHostLayout(context: Context) : FrameLayout(context) {
         canvasView?.visibility = if (viewport != null && pageAlpha > 0f) VISIBLE else INVISIBLE
     }
 
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean =
-        if (!canvasInput) shell?.dispatchTouchEvent(event) ?: false else super.dispatchTouchEvent(event)
-
     fun installShell(view: View) {
         check(shell == null) { "Only one native shell may be attached" }
         shell = view
+        // While the photo moves, claim new touches in gaps between Compose controls.
+        // Keep dispatch in the same ViewGroup so an existing target receives its UP or CANCEL.
+        view.setOnTouchListener { _, _ -> !canvasInput }
         addView(view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         bringChildToFront(view)
     }

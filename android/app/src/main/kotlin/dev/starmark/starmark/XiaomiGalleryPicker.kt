@@ -20,7 +20,7 @@ internal object XiaomiGalleryPicker {
         putExtra("pick-need-origin", true)
     }
 
-    fun resolve(context: Context, multiple: Boolean, theme: String): Intent {
+    fun resolve(context: Context, multiple: Boolean, theme: String, reduceMotion: Boolean = false): Intent {
         val request = request(multiple)
         val target = context.packageManager.resolveActivity(request, PackageManager.MATCH_DEFAULT_ONLY)
         if (target?.activityInfo?.exported == true && target.activityInfo.enabled) return request
@@ -28,6 +28,7 @@ internal object XiaomiGalleryPicker {
         return Intent(context, AlbumPickerActivity::class.java).apply {
             putExtra(AlbumPickerActivity.EXTRA_MULTIPLE, multiple)
             putExtra(AlbumPickerActivity.EXTRA_THEME, theme)
+            putExtra(AlbumPickerActivity.EXTRA_REDUCE_MOTION, reduceMotion)
         }
     }
 }

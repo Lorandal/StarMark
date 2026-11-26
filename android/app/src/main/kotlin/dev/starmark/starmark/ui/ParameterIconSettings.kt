@@ -53,7 +53,7 @@ internal fun ParameterIconSettingsCard(state: Map<*, *>, command: UiCommand) {
     ParameterIconChoiceCard(
         icons = state.rows("parameterIcons"), chosen = settings.text("defaultParameterIcon"),
         shape = settings.text("defaultParameterIconShape", "square"), enabled = !state.flag("busy"),
-        reduceMotion = settings.flag("reduceMotion"), tag = "settings.parameterIcon",
+        tag = "settings.parameterIcon",
         onSelected = { command.send("settings.update", "patch" to mapOf("defaultParameterIcon" to it)) },
         onImport = { command.send("parameterIcon.import") },
         onShape = { command.send("settings.update", "patch" to mapOf("defaultParameterIconShape" to it)) },
@@ -64,17 +64,18 @@ internal fun ParameterIconSettingsCard(state: Map<*, *>, command: UiCommand) {
 /** Settings and both editors use the same thumbnails, hit targets and selection ring. */
 @Composable
 internal fun ParameterIconChoiceCard(
-    icons: List<Map<*, *>>, chosen: String, shape: String, enabled: Boolean, reduceMotion: Boolean,
+    icons: List<Map<*, *>>, chosen: String, shape: String, enabled: Boolean,
     tag: String, onSelected: (String) -> Unit, onImport: () -> Unit, onShape: (String) -> Unit,
     onDefault: (() -> Unit)? = null, summary: String? = null,
     onDelete: ((String) -> Unit)? = null,
 ) {
     val scroll = rememberLazyListState()
+    val reduceMotion = LocalStarMarkEffects.current.reduceMotion
     val haptic = LocalHapticFeedback.current
     var deleteBadge by remember(tag) { mutableStateOf<String?>(null) }
     var confirming by remember(tag) { mutableStateOf<String?>(null) }
     val choices = if (onDefault != null) listOf(mapOf("id" to "default", "asset" to "", "title" to "模板默认图标")) + icons else icons
-    LaunchedEffect(chosen, choices.size) {
+    LaunchedEffect(chosen, choices.size, reduceMotion) {
         val index = choices.indexOfFirst { it.text("asset") == chosen }
         if (index >= 0 && scroll.layoutInfo.visibleItemsInfo.none { it.index == index }) {
             if (reduceMotion) scroll.scrollToItem(index) else scroll.animateScrollToItem(index)
@@ -168,7 +169,7 @@ internal fun ParameterIconRegionCard(state: Map<*, *>, command: UiCommand) {
         icons = state.rows("parameterIcons"),
         chosen = if (design.text("source") == "image") design.text("asset") else "",
         shape = design.text("shape", "square"), enabled = state.editable() && !global,
-        reduceMotion = state.obj("settings").flag("reduceMotion"), tag = "region.parameters",
+        tag = "region.parameters",
         onSelected = { command.send("region.icon", "asset" to it) },
         onImport = { command.send("region.import", "region" to "parameters") },
         onShape = { command.patch("图标形状", "regionReplacements" to (replacements.stringKeys() + ("parameters" to (design.stringKeys() + ("shape" to it))))) },

@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
@@ -235,18 +236,7 @@ fun Slider(
                     Modifier
                 },
             )
-            .semantics {
-                progressBarRangeInfo = ProgressBarRangeInfo(
-                    coercedValue,
-                    valueRange.start..valueRange.endInclusive,
-                    if (steps > 0) steps else 0,
-                )
-                setProgress { target ->
-                    val clamped = target.coerceIn(valueRange.start, valueRange.endInclusive)
-                    onValueChangeState(clamped)
-                    true
-                }
-            },
+            .sliderSemantics(coercedValue, valueRange, steps, enabled, onValueChangeState, onValueChangeFinishedState),
         contentAlignment = Alignment.CenterStart,
     ) {
         SliderTrack(
@@ -428,18 +418,7 @@ fun VerticalSlider(
                     Modifier
                 },
             )
-            .semantics {
-                progressBarRangeInfo = ProgressBarRangeInfo(
-                    coercedValue,
-                    valueRange.start..valueRange.endInclusive,
-                    if (steps > 0) steps else 0,
-                )
-                setProgress { target ->
-                    val clamped = target.coerceIn(valueRange.start, valueRange.endInclusive)
-                    onValueChangeState(clamped)
-                    true
-                }
-            },
+            .sliderSemantics(coercedValue, valueRange, steps, enabled, onValueChangeState, onValueChangeFinishedState),
         contentAlignment = Alignment.BottomCenter,
     ) {
         SliderTrack(
@@ -1206,6 +1185,28 @@ internal class RangeSliderHapticState {
                 onLastStepUpdate(currentValue)
             }
         }
+    }
+}
+
+private fun Modifier.sliderSemantics(
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    enabled: Boolean,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)?,
+): Modifier = semantics {
+    progressBarRangeInfo = ProgressBarRangeInfo(value, range, steps)
+    if (enabled) {
+        setProgress { target ->
+            val next = target.coerceIn(range.start, range.endInclusive)
+            if (next == value || next.isNaN()) return@setProgress false
+            onValueChange(next)
+            onValueChangeFinished?.invoke()
+            true
+        }
+    } else {
+        disabled()
     }
 }
 

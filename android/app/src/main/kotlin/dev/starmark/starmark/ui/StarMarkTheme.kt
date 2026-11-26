@@ -9,6 +9,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
@@ -16,7 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +43,24 @@ internal data class StarMarkEffects(
 }
 internal val LocalStarMarkEffects = staticCompositionLocalOf { StarMarkEffects() }
 internal val LocalUiFontReady = staticCompositionLocalOf { true }
+
+// Library controls read MotionDurationScale from their animation coroutine context.
+internal class StarMarkMotionDurationScale(initial: Float) : MotionDurationScale {
+    override var scaleFactor by mutableFloatStateOf(initial)
+        private set
+
+    fun update(systemScale: Float, reduceMotion: Boolean) {
+        scaleFactor = if (reduceMotion) 0f else systemScale
+    }
+}
+
+private val LocalStarMarkMotionDurationScale = staticCompositionLocalOf<StarMarkMotionDurationScale?> { null }
+
+internal fun ComposeView.setStarMarkContent(lifecycle: Lifecycle, content: @Composable () -> Unit) {
+    val motionScale = StarMarkMotionDurationScale(android.animation.ValueAnimator.getDurationScale())
+    setParentCompositionContext(createLifecycleAwareWindowRecomposer(motionScale, lifecycle))
+    setContent { CompositionLocalProvider(LocalStarMarkMotionDurationScale provides motionScale, content = content) }
+}
 
 private object UiTypeface {
     @Volatile var family: FontFamily? = null
@@ -106,9 +130,12 @@ internal fun StarMarkTheme(settings: Map<*, *>, content: @Composable () -> Unit)
     }
     val systemGlassSupported = MiuiMaterialCapability.glassSupported(context)
     val mode = resolveGlassMode(settings["glassMode"] as? String, settings["glass"] as? Boolean, systemGlassSupported)
+    val reduceMotion = settings.flag("reduceMotion")
+    val motionScale = LocalStarMarkMotionDurationScale.current
+    SideEffect { motionScale?.update(durationScale, reduceMotion) }
     CompositionLocalProvider(
         LocalUiFontReady provides (bundledFamily != null),
-        LocalStarMarkEffects provides StarMarkEffects(mode, systemGlassSupported, durationScale == 0f || settings.flag("reduceMotion"), durationScale),
+        LocalStarMarkEffects provides StarMarkEffects(mode, systemGlassSupported, durationScale == 0f || reduceMotion, durationScale),
         LocalHapticFeedback provides rememberStarMarkHapticFeedback(),
     ) {
         MiuixTheme(colors = colors, textStyles = textStyles, content = content)

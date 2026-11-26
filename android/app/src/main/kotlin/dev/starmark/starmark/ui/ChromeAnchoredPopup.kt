@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +65,7 @@ internal fun ChromeAnchoredPopup(
         val safe = WindowInsets.safeDrawing.union(WindowInsets.ime)
         BackHandler(active) { dismiss() }
         BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }
-            .onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }) {
+            .onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }, contentAlignment = AbsoluteAlignment.TopLeft) {
             Box(Modifier.fillMaxSize().testTag("$tag.outside").pointerInput(active) {
                 detectTapGestures { if (active) dismiss() }
             })
@@ -127,7 +128,8 @@ internal fun ChromeAnchoredPopup(
             // MIUI radius to RenderEffect obscures the rows before they have folded.
             val frameBlur = if (source == null && effects.glass && !effects.reduceMotion) dismissBlur.value / 3f else 0f
             ChromeSurface(
-                modifier = Modifier.offset { IntOffset((frame.left * density.density).roundToInt(), (frame.top * density.density).roundToInt()) }
+                // The measured anchor and every animated frame use physical screen coordinates.
+                modifier = Modifier.absoluteOffset { IntOffset((frame.left * density.density).roundToInt(), (frame.top * density.density).roundToInt()) }
                     .size(frame.width.dp, frame.height.dp)
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.ModulateAlpha
@@ -146,14 +148,14 @@ internal fun ChromeAnchoredPopup(
                     }.pointerInput(Unit) { detectTapGestures { } },
                 cornerRadius = frame.radius.dp, shadowElevation = 12.dp, role = ChromeMaterialRole.Popup,
             ) {
-                Box(Modifier.fillMaxSize().clip(MiuixCornerShape(frame.radius.dp))) {
+                Box(Modifier.fillMaxSize().clip(MiuixCornerShape(frame.radius.dp)), contentAlignment = AbsoluteAlignment.TopLeft) {
                     // ArcAnimation scales both axes by width, capped at 1 during shell overshoot.
                     MiuiSelfBlurHost(
                         wrapContentHeight = true,
                         selfBlurEnabled = source != null,
                         radius = if (effects.reduceMotion || source == null) 0f else 50f * (1f - material),
                         accessible = active && show && (if (source == null) shellAlpha.value else material) >= .99f,
-                        modifier = Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
+                        modifier = Modifier.wrapContentSize(AbsoluteAlignment.TopLeft, unbounded = true)
                             .requiredWidth(menuWidth.dp).heightIn(max = availableHeight.dp)
                             .onSizeChanged { contentHeight = it.height / density.density }
                             .graphicsLayer {

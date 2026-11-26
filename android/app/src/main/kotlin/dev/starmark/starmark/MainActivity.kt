@@ -42,6 +42,7 @@ import dev.starmark.starmark.ui.StarMarkShell
 import dev.starmark.starmark.ui.ChromePhotoRevision
 import dev.starmark.starmark.ui.LocalChromePhotoCapture
 import dev.starmark.starmark.ui.LocalChromePhotoRevision
+import dev.starmark.starmark.ui.setStarMarkContent
 import dev.starmark.starmark.updates.installedAppUpdateInfo
 import dev.starmark.starmark.updates.openUpdateInBrowser
 
@@ -106,7 +107,7 @@ class MainActivity : FlutterFragmentActivity() {
             setViewTreeSavedStateRegistryOwner(this@MainActivity)
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            setContent {
+            setStarMarkContent(this@MainActivity.lifecycle) {
                 val photoCapture = remember(host) { { host.capturePhotoForChrome() } }
                 val photoRevision = ChromePhotoRevision(
                     uiState["page"] as? String,
@@ -247,8 +248,9 @@ class MainActivity : FlutterFragmentActivity() {
                     if(pendingPicker!=null){result.error("busy","选择器已打开",null);return@setMethodCallHandler}
                     pickerKind=when(call.method) { "pickZip" -> "zip"; "pickFont" -> "font"; "pickRegionImage" -> "region"; else -> "photo" }
                     pickerRemoveWatermark = args["autoRemoveWatermark"] == true
+                    val pickerSettings = uiState["settings"] as? Map<*, *>
                     val intent=if(pickerKind=="photo") XiaomiGalleryPicker.resolve(this, args["multiple"]==true,
-                        (uiState["settings"] as? Map<*,*>)?.get("theme") as? String ?: "system")
+                        pickerSettings?.get("theme") as? String ?: "system", pickerSettings?.get("reduceMotion") == true)
                     else Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         // Providers disagree on font MIME types; validate bytes
                         // instead of excluding valid TTF/OTF documents here.

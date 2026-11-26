@@ -59,29 +59,88 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val EditorToolsSidePadding = 12.dp
 
+internal class PhotoEditorTools(val tab: MutableState<String>, val nested: MutableState<String?>)
+
 @Composable
-internal fun CameraEditorTopBar(state: Map<*, *>, command: UiCommand, sideHistory: Boolean = false, openPanel: (String) -> Unit) {
+internal fun rememberPhotoEditorTools(photoId: String): PhotoEditorTools {
+    val tab = rememberSaveable(photoId) { mutableStateOf("styles") }
+    val nested = rememberSaveable(photoId) { mutableStateOf<String?>(null) }
+    return remember(tab, nested) { PhotoEditorTools(tab, nested) }
+}
+
+@Composable
+internal fun rememberPhotoToolEntries() = remember { listOf(
+    FloatingNavEntry("styles", "水印", MiuixIcons.Image),
+    FloatingNavEntry("content", "内容", MiuixIcons.Edit),
+    FloatingNavEntry("fonts", "字体", MiuixIcons.Rename, iconText = "Aa"),
+    FloatingNavEntry("position", "位置", ReferenceIcons.Adjust),
+) }
+
+@Composable
+internal fun editorRailFitsFold(feature: FoldingFeature?): Boolean {
+    if (feature?.orientation != FoldingFeature.Orientation.HORIZONTAL) return true
+    val metrics = editorTrailingNavigationMetrics(rememberPhotoToolEntries())
+    val heightPx = LocalWindowInfo.current.containerSize.height
+    val lowerPane = with(LocalDensity.current) { (heightPx - feature.bounds.bottom).toDp() } - 8.dp
+    val safe = WindowInsets.safeDrawing.asPaddingValues()
+    return lowerPane >= metrics.heightWithHistory + metrics.bottomPadding + safe.calculateBottomPadding()
+}
+
+@Composable
+internal fun CameraEditorTopBar(state: Map<*, *>, command: UiCommand, sideHistory: Boolean = false,
+                               feature: FoldingFeature? = null, openPanel: (String) -> Unit) {
     val ready = state.flag("ready")
     val interactive = state.editable()
     val template = state.obj("template").flag("active")
     val batch = state.obj("batch").flag("active")
     val saveLabel = if (batch) "完成" else "保存"
     val saveAction = if (template) "template.save" else if (batch) "batch.done" else "photo.export"
-    Row(Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 72.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HistoryButtonSpacing)) {
-        CameraCircle("关闭编辑", "navigation.back", MiuixIcons.Close, ready, interactive) { command.send("navigate.back") }
-        if (!sideHistory) CameraHistoryButtons(state, command)
-        if (template) Text(state.obj("template").text("title"), modifier = Modifier.weight(1f), maxLines = 1) else Spacer(Modifier.weight(1f))
-        CameraGlassButton(saveLabel, saveAction, ready && interactive, width = (34f * LocalDensity.current.fontScale + 34f).dp, onClick = { command.send(saveAction) }) {
-            Text(saveLabel, fontSize = 17.sp, maxLines = 1, color = if (ready) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
+    val density = LocalDensity.current
+    val preferredSave = (34f * density.fontScale + 34f).dp
+    val minimumSave = maxOf(48.dp, with(density) { 17.sp.toDp() } * 2 + 12.dp)
+    val endButton = if (template) maxOf(ButtonDefaults.MinWidth, with(density) { MiuixTheme.textStyles.button.fontSize.toDp() } * 2 + 32.dp) else 48.dp
+    val leading = if (sideHistory) 48.dp else 48.dp * 3 + HistoryButtonSpacing * 2
+    val trailing = preferredSave + HistoryButtonSpacing + endButton
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    BoxWithConstraints(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 10.dp)
+        .then(if (feature == null) Modifier else Modifier.onGloballyPositioned { origin = it.positionInWindow() })) {
+        val fold = feature?.relativeTo(origin, density)
+        // Keep the normal edge actions when each physical side is clear. An off-centre hinge
+        // can cut through an action group; use the larger contiguous side in that case.
+        val before = (fold?.start?.dp ?: 0.dp) - 8.dp
+        val after = (fold?.end?.dp ?: 0.dp) + 8.dp
+        val vertical = fold?.vertical == true && after > 0.dp && before < maxWidth
+        val interrupted = vertical && (before < (if (rtl) trailing else leading) || maxWidth - after < (if (rtl) leading else trailing))
+        val left = if (interrupted && before < maxWidth - after) after.coerceIn(0.dp, maxWidth) else 0.dp
+        val right = if (interrupted && before >= maxWidth - after) (maxWidth - before).coerceIn(0.dp, maxWidth) else 0.dp
+        val width = maxWidth - left - right
+        val fixedActions = 48.dp + endButton + HistoryButtonSpacing * 3
+        val roomForSave = width - fixedActions - (if (sideHistory) 0.dp else (48.dp + HistoryButtonSpacing) * 2)
+        val wrapHistory = !sideHistory && roomForSave < minimumSave
+        val saveWidth = minOf(preferredSave, if (wrapHistory) width - fixedActions else roomForSave).coerceAtLeast(minimumSave)
+        val toolbarHeight = if (wrapHistory) 120.dp else 72.dp
+        val top = if (fold?.vertical == false && after > 0.dp && before < toolbarHeight) after else 0.dp
+        Column(Modifier.fillMaxWidth().absolutePadding(left = left, right = right, top = top)) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 72.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(HistoryButtonSpacing)) {
+                CameraCircle("关闭编辑", "navigation.back", MiuixIcons.Close, ready, interactive) { command.send("navigate.back") }
+                if (!sideHistory && !wrapHistory) CameraHistoryButtons(state, command)
+                if (template) Text(state.obj("template").text("title"), modifier = Modifier.weight(1f), maxLines = 1) else Spacer(Modifier.weight(1f))
+                CameraGlassButton(saveLabel, saveAction, ready && interactive, width = saveWidth, onClick = { command.send(saveAction) }) {
+                    Text(saveLabel, fontSize = 17.sp, maxLines = 1, color = if (ready) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
+                }
+                if (template) TextButton("重置", hapticClick { command.send("template.reset") }, modifier = Modifier.testTag("template.reset"))
+                if (!template) MorphingMoreMenu(
+                    entries = remember(batch) { photoMenuEntries(batch) },
+                    onAction = { if (it == "history" || it == "saveStyle") openPanel(it) else command.send(it) },
+                    enabled = ready, interactionEnabled = interactive, modifier = Modifier.size(48.dp),
+                )
+            }
+            if (wrapHistory) Row(horizontalArrangement = Arrangement.spacedBy(HistoryButtonSpacing)) {
+                CameraHistoryButtons(state, command)
+            }
         }
-        if (template) TextButton("重置", hapticClick { command.send("template.reset") }, modifier = Modifier.testTag("template.reset"))
-        if (!template) MorphingMoreMenu(
-            entries = remember(batch) { photoMenuEntries(batch) },
-            onAction = { if (it == "history" || it == "saveStyle") openPanel(it) else command.send(it) },
-            enabled = ready,
-            interactionEnabled = interactive,
-            modifier = Modifier.size(48.dp),
-        )
     }
 }
 
@@ -132,11 +191,12 @@ internal fun CameraEditorBody(
     state: Map<*, *>, command: UiCommand, wide: Boolean, openPanel: (String) -> Unit,
     onViewport: (androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect, Float) -> Unit, trailingTabs: Boolean = false,
     bodyInsets: PaddingValues = PaddingValues(0.dp), trayReveal: State<Float>? = null,
+    feature: FoldingFeature? = separatingEditorFold(),
+    tools: PhotoEditorTools = rememberPhotoEditorTools(state.obj("photo").text("id")),
 ) {
-    val photoId = state.obj("photo").text("id")
-    var tool by rememberSaveable(photoId) { mutableStateOf("styles") }
-    var nested by rememberSaveable(photoId) { mutableStateOf<String?>(null) }
-    var styleRequest by rememberSaveable(photoId) { mutableIntStateOf(0) }
+    var tool by tools.tab
+    var nested by tools.nested
+    var styleRequest by rememberSaveable(state.obj("photo").text("id")) { mutableIntStateOf(0) }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     fun choose(next: String) {
@@ -158,7 +218,6 @@ internal fun CameraEditorBody(
     val rtl = layoutDirection == LayoutDirection.Rtl
     val windowSize = LocalWindowInfo.current.containerSize
     val landscape = wide && windowSize.width > windowSize.height
-    val feature = separatingEditorFold()
     var origin by remember { mutableStateOf(Offset.Zero) }
     val keyboardOpen = WindowInsets.ime.getBottom(density) > 0
     val batch = state.obj("batch")
@@ -169,24 +228,12 @@ internal fun CameraEditorBody(
     }
     BackHandler(enabled = showTray && expanded && nested == null && !batch.flag("confirmContent")) { command.send("batch.tray", "expanded" to false) }
     val bottomMargin = navigationBottomMargin(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value)
-    val entries = remember { listOf(
-        FloatingNavEntry("styles", "水印", MiuixIcons.Image),
-        FloatingNavEntry("content", "内容", MiuixIcons.Edit),
-        FloatingNavEntry("fonts", "字体", MiuixIcons.Rename, iconText = "Aa"),
-        FloatingNavEntry("position", "位置", ReferenceIcons.Adjust),
-    ) }
+    val entries = rememberPhotoToolEntries()
     val trailingMetrics = if (trailingTabs) editorTrailingNavigationMetrics(entries) else null
     Box(Modifier.fillMaxSize().testTag(if (state.obj("template").flag("active")) "screen.templateEditor" else "screen.editor")
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
         BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }, contentAlignment = AbsoluteAlignment.TopLeft) {
-            val fold = feature?.let {
-                val vertical = it.orientation == FoldingFeature.Orientation.VERTICAL
-                val bounds = it.bounds
-                with(density) {
-                    if (vertical) EditorFold(true, (bounds.left - origin.x).toDp().value, (bounds.right - origin.x).toDp().value)
-                    else EditorFold(false, (bounds.top - origin.y).toDp().value, (bounds.bottom - origin.y).toDp().value)
-                }
-            }
+            val fold = feature?.relativeTo(origin, density)
             val controlsMinimum = if (keyboardOpen || trailingTabs) 204f else floatingNavigationMetrics(maxWidth.value, density.fontScale, 4).height + 188f + bottomMargin
             // Window and hinge geometry own the split. A tool's clearance belongs inside its pane.
             val railSpace = trailingMetrics?.clearance ?: 0.dp
@@ -266,7 +313,7 @@ internal fun EditorPhotoWithTray(
 }
 
 @Composable
-private fun separatingEditorFold(): FoldingFeature? {
+internal fun separatingEditorFold(): FoldingFeature? {
     val activity = LocalActivity.current ?: return null
     val changes = remember(activity) {
         WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity).map { info ->
@@ -276,6 +323,12 @@ private fun separatingEditorFold(): FoldingFeature? {
         }
     }
     return changes.collectAsStateWithLifecycle(initialValue = null).value
+}
+
+private fun FoldingFeature.relativeTo(origin: Offset, density: androidx.compose.ui.unit.Density): EditorFold = with(density) {
+    if (orientation == FoldingFeature.Orientation.VERTICAL)
+        EditorFold(true, (bounds.left - origin.x).toDp().value, (bounds.right - origin.x).toDp().value)
+    else EditorFold(false, (bounds.top - origin.y).toDp().value, (bounds.bottom - origin.y).toDp().value)
 }
 
 internal fun Modifier.inEditorPane(bounds: EditorPaneBounds, parent: EditorPaneBounds? = null) =

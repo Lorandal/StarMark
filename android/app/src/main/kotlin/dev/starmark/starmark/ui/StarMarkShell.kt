@@ -182,8 +182,11 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                 else -> Dp.Infinity
             }
             val guarded: UiCommand = { action, args -> if (current || (action == "adjust" && args["phase"] == "cancel")) command(action, args) }
-            val collapseEnabled = (rootDestination || shown == "styles" || shown == "watermarks") && !compact
-            val trackHeaderScroll = collapseEnabled || shown in listOf("styles", "watermarks", "settings")
+            val trackHeaderScroll = when (shown) {
+                "home" -> !compact
+                "editor", "templateEditor" -> false
+                else -> true
+            }
             val barState = rememberTopAppBarState()
             val canCollapse = remember(trackHeaderScroll) { { trackHeaderScroll } }
             val scrollBehavior = if (shown == "home") {
@@ -212,8 +215,11 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
             })
             CompositionLocalProvider(LocalChromeBackdrop provides chromeBackdrop,
                 LocalRootNavigationRail provides null) {
-                if (shown == "editor" && sideNavigation) key(state.obj("photo").text("id")) {
-                    FoldGalleryEditor(state, guarded, { if (current) changePanel(it) }, trayReveal) { photo, surface, bias ->
+                val tools = if (shown == "editor") rememberPhotoEditorTools(state.obj("photo").text("id")) else null
+                val fold = if (tools != null) separatingEditorFold() else null
+                val editorRail = sideNavigation && editorRailFitsFold(fold)
+                if (tools != null && sideNavigation && fold == null) key(state.obj("photo").text("id")) {
+                    FoldGalleryEditor(state, guarded, { if (current) changePanel(it) }, trayReveal, tools) { photo, surface, bias ->
                         val translation = Offset(-offset(), 0f)
                         if (ownsCanvas()) onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
                     }
@@ -229,24 +235,15 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                             Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                                 .wrapContentWidth().widthIn(max = readingWidth)) {
                             when (shown) {
-                                "home" -> BrandTopBar(if (collapseEnabled) barState else null, compact = sideNavigation)
+                                "home" -> BrandTopBar(if (trackHeaderScroll) barState else null, compact = sideNavigation)
                                 "editor" -> CameraEditorTopBar(state, guarded,
-                                    sideHistory = sideNavigation && WindowInsets.ime.getBottom(density) == 0) {
+                                    sideHistory = editorRail && WindowInsets.ime.getBottom(density) == 0, feature = fold) {
                                     if (current) changePanel(it)
                                 }
                                 "templateEditor" -> TemplateEditorTopBar(state, guarded)
-                                "styles", "watermarks", "settings" -> ReferencePageHeader(title, scrollBehavior, compact, showBack = shown != "settings") { guarded.send("navigate.back") }
-                                else -> {
-                                    val navigation: @Composable () -> Unit = {
-                                        if (!rootDestination) ActionIcon("返回", "navigation.back", ReferenceIcons.Back) { guarded.send("navigate.back") }
-                                    }
-                                    val actions: @Composable RowScope.() -> Unit = {}
-                                    if (shown == "components" || shown == "licenses" || compact) {
-                                        SmallTopAppBar(title, navigationIcon = navigation, actions = actions, color = Color.Transparent)
-                                    } else {
-                                        TopAppBar(title, modifier = Modifier.testTag("app.collapsingHeader"), navigationIcon = navigation, actions = actions, color = Color.Transparent, titlePadding = 28.dp, scrollBehavior = scrollBehavior)
-                                    }
-                                }
+                                else -> ReferencePageHeader(title, scrollBehavior,
+                                    compact = compact || shown == "components" || shown == "licenses",
+                                    showBack = !rootDestination) { guarded.send("navigate.back") }
                             }
                             }
                         }
@@ -269,8 +266,10 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                         end = routeInsets.calculateEndPadding(layoutDirection),
                     ) else routeInsets
                     val reserveBottomNavigation = rootDestination && (!sideNavigation || (shown == "home" && selectingDrafts))
+                    val keyboardInset = if (shown == "licenses" || shown == "components")
+                        WindowInsets.ime.asPaddingValues().calculateBottomPadding() else 0.dp
                     val scrollClearance = maxOf(if (reserveBottomNavigation) navigationHeight else 0.dp,
-                        if (shown == "home") homeRailHeight else 0.dp)
+                        if (shown == "home") homeRailHeight else 0.dp, keyboardInset)
                     val pageInsets = if (scrollClearance > 0.dp) PaddingValues(
                         start = routeInsets.calculateStartPadding(layoutDirection),
                         top = routeInsets.calculateTopPadding(),
@@ -301,15 +300,16 @@ private fun ShellContent(state: Map<*, *>, command: UiCommand, onCanvasBounds: (
                                     CameraEditorBody(state, guarded, windowLayout.landscapeWorkspace, { if (current) changePanel(it) }, { photo, surface, bias ->
                                         val translation = Offset(-offset(), 0f)
                                         if (ownsCanvas()) onEditorViewport(photo.translate(translation), surface.translate(translation), bias)
-                                    }, trailingTabs = sideNavigation, bodyInsets = editorInsets, trayReveal = trayReveal)
+                                    }, trailingTabs = editorRail, bodyInsets = editorInsets, trayReveal = trayReveal,
+                                        feature = fold, tools = requireNotNull(tools))
                                 }
                                 "styles" -> Box(Modifier.fillMaxSize().testTag("screen.styles")) { WatermarkPickerPage(state, guarded, routeInsets) }
                                 "watermarks" -> WatermarkPickerPage(state, guarded, routeInsets)
                                 "batch" -> BatchPage(state, guarded, routeInsets)
                                 "settings" -> SettingsPage(state, guarded, pageInsets)
                                 "experiments" -> ExperimentalSettingsPage(state, guarded, routeInsets)
-                                "components" -> ComponentCatalog(routeInsets)
-                                "licenses" -> LicensesPage(routeInsets, reduceMotion)
+                                "components" -> ComponentCatalog(pageInsets)
+                                "licenses" -> LicensesPage(pageInsets, reduceMotion)
                                 else -> HomePage(state, guarded, pageInsets, homeBannerPage, selectionInChrome = true, landscapeWorkspace = windowLayout.landscapeWorkspace)
                             }
                         }
@@ -432,13 +432,6 @@ internal fun EditorCanvas(
         }
         val warnings = (state["modelWarnings"] as? List<*>)?.filterIsInstance<String>().orEmpty()
         if (warnings.isNotEmpty()) SupportingText("部分机型字符缺少 SVG：${warnings.joinToString(" · ")}")
-    }
-}
-
-@Composable
-private fun ActionIcon(label: String, tag: String, icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
-    IconButton(onClick = hapticClick(feedbackEnabled = tag != "navigation.back", onClick = onClick), enabled = enabled, modifier = Modifier.testTag(tag)) {
-        Icon(icon, label, Modifier.size(if (icon == ReferenceIcons.Back) 28.dp else 24.dp), tint = if (enabled) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.disabledOnSurface)
     }
 }
 
